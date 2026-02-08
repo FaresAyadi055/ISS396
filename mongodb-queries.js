@@ -13,7 +13,7 @@
 // ============================================
 
 // Show all collections
-show collections;
+db.getCollectionNames();
 
 // Get collection stats
 db.users.stats();
@@ -118,8 +118,8 @@ db.reports.aggregate([
       as: 'farmer'
     }
   },
-  { $match: { 'farmer.name': 'John Doe' } },
   { $unwind: '$farmer' },
+  { $match: { 'farmer.name': 'John Doe' } },
   { $sort: { createdAt: -1 } }
 ]).pretty();
 
@@ -187,8 +187,8 @@ db.reports.drop();
 db.stats();
 
 // Explain query performance
-db.users.explain('executionStats').find({ email: 'admin@example.com' });
-db.reports.explain('executionStats').find({ farmerId: ObjectId('...') });
+db.users.find({ email: 'admin@example.com' }).explain('executionStats');
+db.reports.find({ farmerId: ObjectId('65a7c1234567890abcdef124') }).explain('executionStats');
 
 // ============================================
 // BACKUP & EXPORT
@@ -262,7 +262,7 @@ function runTests() {
   console.log('✓ Total reports:', reportCount);
   
   // Test 6: Indexes
-  const userIndexes = db.users.getIndexKeys();
+  const userIndexes = db.users.getIndexes();
   console.log('✓ User indexes:', userIndexes);
   
   // Test 7: Email unique index
