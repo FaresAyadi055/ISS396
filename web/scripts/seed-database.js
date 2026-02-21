@@ -10,8 +10,8 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
 // Import models
-const User = require('../src/models/User');
-const Report = require('../src/models/Report');
+const User = require('../src/models/User').default;
+const Report = require('../src/models/Report').default;
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/iss396';
 
