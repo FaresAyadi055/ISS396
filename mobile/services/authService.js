@@ -23,7 +23,7 @@ export const authService = {
       const response = await apiClient.post('/auth/login', {
         email,
         password,
-      })
+      })  
 
       if (response.data.token) {
         // Store token

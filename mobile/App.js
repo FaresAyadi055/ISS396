@@ -6,7 +6,7 @@ import { RootNavigator } from './navigation/RootNavigator'
 export default function App() {
   return (
     <AuthProvider>
-      <RootNavigator />
+    <RootNavigator />
       <StatusBar barStyle="dark-content" />
     </AuthProvider>
   )

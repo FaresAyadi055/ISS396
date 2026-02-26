@@ -13,7 +13,6 @@ export const loginUser = async (email, password) => {
   if (!user) {
     throw new Error('Invalid email or password')
   }
-
   // Compare password
   const isPasswordValid = await user.comparePassword(password)
   if (!isPasswordValid) {

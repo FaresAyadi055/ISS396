@@ -46,35 +46,35 @@ async function seedDatabase() {
     // Create Sample Farmers
     // ============================================
     console.log('👨‍🌾 Creating sample farmers...');
-    const farmers = await User.insertMany([
+    const farmers = await User.create([
       {
         name: 'John Doe',
         email: 'john.doe@example.com',
-        password: 'farmer123',
+        password: 'farmer123', // Will be hashed by model
         role: 'farmer'
       },
       {
         name: 'Jane Smith',
         email: 'jane.smith@example.com',
-        password: 'farmer123',
+        password: 'farmer123', // Will be hashed by model
         role: 'farmer'
       },
       {
         name: 'Ahmed Hassan',
         email: 'ahmed.hassan@example.com',
-        password: 'farmer123',
+        password: 'farmer123', // Will be hashed by model
         role: 'farmer'
       },
       {
         name: 'Maria Garcia',
         email: 'maria.garcia@example.com',
-        password: 'farmer123',
+        password: 'farmer123', // Will be hashed by model
         role: 'farmer'
       },
       {
         name: 'David Wilson',
         email: 'david.wilson@example.com',
-        password: 'farmer123',
+        password: 'farmer123', // Will be hashed by model
         role: 'farmer'
       }
     ]);

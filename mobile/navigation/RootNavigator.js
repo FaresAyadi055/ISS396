@@ -3,8 +3,8 @@ import { NavigationContainer } from '@react-navigation/native'
 import { createStackNavigator } from '@react-navigation/stack'
 import { ActivityIndicator, View } from 'react-native'
 import { AuthContext } from '../context/AuthContext'
-import { LoginScreen } from './LoginScreen'
-import { DashboardScreen } from './DashboardScreen'
+import { LoginScreen } from '../screens/LoginScreen'
+import { DashboardScreen } from '../screens/DashboardScreen'
 
 const Stack = createStackNavigator()
 
@@ -32,7 +32,7 @@ export const RootNavigator = () => {
             name="Dashboard"
             component={DashboardScreen}
             options={{
-              animationEnabled: false,
+              animationEnabled: true,
             }}
           />
         ) : (
@@ -41,7 +41,7 @@ export const RootNavigator = () => {
             name="Login"
             component={LoginScreen}
             options={{
-              animationEnabled: false,
+              animationEnabled: true,
             }}
           />
         )}

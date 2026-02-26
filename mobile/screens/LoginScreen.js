@@ -6,10 +6,9 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
-  SafeAreaView,
 } from 'react-native'
 import { AuthContext } from '../context/AuthContext'
-
+import { SafeAreaView } from 'react-native-safe-area-context';
 export const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
