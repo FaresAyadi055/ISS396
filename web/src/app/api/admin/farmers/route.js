@@ -9,7 +9,7 @@ import {
 } from '@/services/user.service'
 
 // Custom middleware wrapper
-async function withAuth(handler) {
+function withAuth(handler) {
   return async (req) => {
     // Verify token
     let user = null

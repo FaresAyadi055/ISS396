@@ -28,6 +28,7 @@ export default function FarmersPage() {
     try {
       setLoading(true)
       const response = await axios.get('/api/admin/farmers')
+      console.log(response.data)
       setFarmers(response.data.farmers || [])
     } catch (error) {
       setMessage('Failed to fetch farmers')
