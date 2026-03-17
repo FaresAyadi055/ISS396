@@ -3,3 +3,4 @@ web/node_modules
 mobile/node_modules
 web/.env
 mobile/.env
+ai_pipeline/.env
