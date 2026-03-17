@@ -5,6 +5,7 @@ import { ActivityIndicator, View } from 'react-native'
 import { AuthContext } from '../context/AuthContext'
 import { LoginScreen } from '../screens/LoginScreen'
 import { DashboardScreen } from '../screens/DashboardScreen'
+import CameraTestScreen from '../screens/CameratestScreen';
 
 const Stack = createStackNavigator()
 
@@ -27,22 +28,23 @@ export const RootNavigator = () => {
         }}
       >
         {user ? (
-          // Authenticated screens
-          <Stack.Screen
-            name="Dashboard"
-            component={DashboardScreen}
-            options={{
-              animationEnabled: true,
-            }}
-          />
+          <>
+            <Stack.Screen
+              name="Dashboard"
+              component={DashboardScreen}
+              options={{ animationEnabled: true }}
+            />
+            <Stack.Screen
+              name="CameraTest"
+              component={CameraTestScreen}
+              options={{ animationEnabled: true }}
+            />
+          </>
         ) : (
-          // Login screen
           <Stack.Screen
             name="Login"
             component={LoginScreen}
-            options={{
-              animationEnabled: true,
-            }}
+            options={{ animationEnabled: true }}
           />
         )}
       </Stack.Navigator>

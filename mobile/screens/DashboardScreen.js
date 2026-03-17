@@ -35,8 +35,8 @@ export const DashboardScreen = ({ navigation }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
 
-          <TouchableOpacity style={styles.actionButton}>
-            <Text style={styles.actionButtonText}>📷 Upload Crop Photo</Text>
+          <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('CameraTest')}>
+            <Text style={styles.actionButtonText}>📷 Scan with Camera</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionButton}>
