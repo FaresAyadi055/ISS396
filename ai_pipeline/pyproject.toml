@@ -1,0 +1,15 @@
+[project]
+name = "ai_pipeline"
+version = "0.1.0"
+description = "A segmentation and classification ai pipeline via a fastapi socket using yolo and mobilenet for crop leaf disiease detection."
+
+requires-python = "==3.12.10" 
+
+[build-system]
+
+requires = ["setuptools>=61.0", "pip>=26.0.1"]
+build-backend = "setuptools.build_meta"
+
+[tool.cuda]
+
+version = "12.6"

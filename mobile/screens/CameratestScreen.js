@@ -27,7 +27,7 @@ const SOCKET_PATH   = '/api/ai_pipeline/socket';
 const ROOM_ID       = 'room-1';
 
 const FRAME_INTERVAL_MS = 80;
-const JPEG_QUALITY      = 35;
+const JPEG_QUALITY      = 50;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // No hardcoded label list needed.
