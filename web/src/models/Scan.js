@@ -1,9 +1,7 @@
+// src/models/Scan.js
 import mongoose from "mongoose";
 
-// ---------------------------------------------------------------------------
 // Sub-schema: one entry in the sorted classification result list
-// { label: "Tomato___Early_blight", score: 0.9412 }
-// ---------------------------------------------------------------------------
 const ClassificationEntrySchema = new mongoose.Schema(
   {
     label: { type: String, required: true, trim: true },
@@ -12,13 +10,7 @@ const ClassificationEntrySchema = new mongoose.Schema(
   { _id: false }
 );
 
-// ---------------------------------------------------------------------------
-// Sub-schema: full MobileNet-V2 result — all 38 classes sorted by score desc.
-//
-// classifications[0] is always the top prediction.
-// Labels travel with their scores from inference time so no client-side
-// index mapping is ever needed.
-// ---------------------------------------------------------------------------
+// Full 38-class classification result (alphabetical order)
 const ClassificationResultSchema = new mongoose.Schema(
   {
     classifications: {
@@ -26,20 +18,19 @@ const ClassificationResultSchema = new mongoose.Schema(
       required: true,
       validate: {
         validator: (arr) => arr.length === 38,
-        message:   "classifications must contain exactly 38 entries",
+        message: "classifications must contain exactly 38 entries",
       },
     },
   },
   { _id: false }
 );
 
-// ---------------------------------------------------------------------------
-// Sub-schema: one detected object — mask (Buffer) + classification
-// ---------------------------------------------------------------------------
+// Single detection (mask + metadata + AI result)
 const DetectionSchema = new mongoose.Schema(
   {
-    // Stored as Buffer; exposed as base64 via virtual for the API layer
-    mask:                   { type: Buffer,                     required: true },
+    mask: { type: Buffer, required: true },          // processed mask image
+    location: { type: [Number], required: true },    // [lng, lat]
+    date: { type: Date, required: true },
     classification_results: { type: ClassificationResultSchema, required: true },
   },
   { _id: false }
@@ -49,83 +40,67 @@ DetectionSchema.virtual("maskBase64").get(function () {
   return this.mask ? this.mask.toString("base64") : null;
 });
 
-// ---------------------------------------------------------------------------
-// Sub-schema: one FastAPI scan_entry (single POST /scan call)
-// ---------------------------------------------------------------------------
+// One upload batch: two originals + multiple detections
 const ImageScanSchema = new mongoose.Schema(
   {
-    scan_id:          { type: String, required: true, trim: true },
-    image:            { type: [DetectionSchema], default: [] },
+    scan_id: { type: String, required: true, trim: true },
+    original_image_masked: { type: Buffer, required: true },   // with masks drawn
+    original_image_clean: { type: Buffer, required: true },    // clean version
+    detections: { type: [DetectionSchema], default: [] },
     detections_count: { type: Number, default: 0 },
   },
   { _id: false, timestamps: false }
 );
 
-// ---------------------------------------------------------------------------
-// Root schema — one document per scan session, owned by a user
-// ---------------------------------------------------------------------------
+ImageScanSchema.virtual("original_image_masked_base64").get(function () {
+  return this.original_image_masked ? this.original_image_masked.toString("base64") : null;
+});
+ImageScanSchema.virtual("original_image_clean_base64").get(function () {
+  return this.original_image_clean ? this.original_image_clean.toString("base64") : null;
+});
+
+// Root schema – one document per session
 const ScanSchema = new mongoose.Schema(
   {
-    // ── Ownership ────────────────────────────────────────────────────────────
     userId: {
-      type:     mongoose.Schema.Types.ObjectId,
-      ref:      "User",
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
       required: true,
-      index:    true,
-    },
-
-    // Optional caller-supplied tag (device id, field trip name, etc.)
-    sessionId: {
-      type:  String,
       index: true,
-      trim:  true,
     },
-
-    // ── Scan data ────────────────────────────────────────────────────────────
-    // Mirrors FastAPI's scan_store:  { scans: [ {scan_id, image:[...]}, ... ] }
-    scans: {
-      type:    [ImageScanSchema],
-      default: [],
-    },
-
-    // Denormalised counters — avoid aggregation for simple queries
+    sessionId: { type: String, index: true, trim: true },
+    scans: { type: [ImageScanSchema], default: [] },
     totalDetections: { type: Number, default: 0 },
-    lastScannedAt:   { type: Date,   default: null },
+    lastScannedAt: { type: Date, default: null },
   },
-  {
-    timestamps: true,                            
-    toJSON:   { virtuals: true },
-    toObject: { virtuals: true },
-  }
+  { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );
 
-// ---------------------------------------------------------------------------
-// Indexes
-// ---------------------------------------------------------------------------
 ScanSchema.index({ createdAt: -1 });
-ScanSchema.index({ userId: 1, createdAt: -1 });   // list user's scans by date
-ScanSchema.index({ userId: 1, sessionId: 1 });    // look up a session by owner
+ScanSchema.index({ userId: 1, createdAt: -1 });
+ScanSchema.index({ userId: 1, sessionId: 1 });
 
-// ---------------------------------------------------------------------------
-// Instance method: append one FastAPI scan_entry + update counters
-// ---------------------------------------------------------------------------
+// Instance method: append one scan batch
 ScanSchema.methods.appendScan = function (scanEntry) {
-  const detections = (scanEntry.image || []).map((det) => ({
-    mask:                   Buffer.from(det.mask, "base64"),
+  const detections = (scanEntry.detections || []).map((det) => ({
+    mask: Buffer.from(det.mask, "base64"),
+    location: det.location,
+    date: det.date ? new Date(det.date) : new Date(),
     classification_results: det.classification_results,
   }));
 
   this.scans.push({
-    scan_id:          scanEntry.scan_id,
-    image:            detections,
+    scan_id: scanEntry.scan_id,
+    original_image_masked: Buffer.from(scanEntry.original_image_masked, "base64"),
+    original_image_clean: Buffer.from(scanEntry.original_image_clean, "base64"),
+    detections: detections,
     detections_count: detections.length,
   });
 
   this.totalDetections += detections.length;
-  this.lastScannedAt   = new Date();
+  this.lastScannedAt = new Date();
   return this;
 };
-
 
 delete mongoose.models.Scan;
 const Scan = mongoose.model("Scan", ScanSchema);

@@ -20,7 +20,6 @@ export async function POST(req) {
       maxAge: 7 * 24 * 60 * 60, // 7 days
       path: '/',
     })
-
     return response
   } catch (error) {
     return NextResponse.json(
