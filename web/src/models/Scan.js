@@ -28,13 +28,18 @@ const ClassificationResultSchema = new mongoose.Schema(
 // Single detection (mask + metadata + AI result)
 const DetectionSchema = new mongoose.Schema(
   {
-    mask: { type: Buffer, required: true },          // processed mask image
-    location: { type: [Number], required: true },    // [lng, lat]
+    mask: { type: Buffer, required: true },
+    maskId: { type: String, required: true },
+    location: { type: [Number], required: true },
     date: { type: Date, required: true },
     classification_results: { type: ClassificationResultSchema, required: true },
   },
   { _id: false }
 );
+
+DetectionSchema.virtual("maskBase64").get(function () {
+  return this.mask ? this.mask.toString("base64") : null;
+});
 
 DetectionSchema.virtual("maskBase64").get(function () {
   return this.mask ? this.mask.toString("base64") : null;
@@ -72,6 +77,8 @@ const ScanSchema = new mongoose.Schema(
     scans: { type: [ImageScanSchema], default: [] },
     totalDetections: { type: Number, default: 0 },
     lastScannedAt: { type: Date, default: null },
+    hasReport: { type: Boolean, default: false },
+    reportId: { type: mongoose.Schema.Types.ObjectId, ref: "Report", default: null },
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );
@@ -84,6 +91,7 @@ ScanSchema.index({ userId: 1, sessionId: 1 });
 ScanSchema.methods.appendScan = function (scanEntry) {
   const detections = (scanEntry.detections || []).map((det) => ({
     mask: Buffer.from(det.mask, "base64"),
+    maskId: det.maskId,
     location: det.location,
     date: det.date ? new Date(det.date) : new Date(),
     classification_results: det.classification_results,

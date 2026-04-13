@@ -22,7 +22,7 @@ class LoginDataSource(private val settingsManager: SettingsManager) {
             }
             
             val logging = HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.BODY
+                level = HttpLoggingInterceptor.Level.HEADERS
             }
             val client = OkHttpClient.Builder()
                 .addInterceptor(logging)
@@ -39,11 +39,25 @@ class LoginDataSource(private val settingsManager: SettingsManager) {
 
             if (response.isSuccessful && response.body() != null) {
                 val loginResponse = response.body()!!
-                if (loginResponse.success && loginResponse.user != null) {
+                
+                // Extract token from body or Set-Cookie header
+                var token = loginResponse.token
+                if (token == null) {
+                    val cookies = response.headers().values("Set-Cookie")
+                    for (cookie in cookies) {
+                        if (cookie.startsWith("token=")) {
+                            token = cookie.substringAfter("token=").substringBefore(";")
+                            break
+                        }
+                    }
+                }
+
+                if (loginResponse.success && loginResponse.user != null && token != null) {
                     return Result.Success(
                         LoggedInUser(
                             userId = loginResponse.user.id,
-                            displayName = loginResponse.user.name
+                            displayName = loginResponse.user.name,
+                            token = token
                         )
                     )
                 }

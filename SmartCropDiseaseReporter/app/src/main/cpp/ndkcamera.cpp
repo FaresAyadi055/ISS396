@@ -496,7 +496,10 @@ void NdkCameraWindow::set_window(ANativeWindow* _win)
     }
 
     win = _win;
-    ANativeWindow_acquire(win);
+    if (win)
+    {
+        ANativeWindow_acquire(win);
+    }
 }
 
 void NdkCameraWindow::on_image_render(cv::Mat& rgb) const

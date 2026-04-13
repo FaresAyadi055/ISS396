@@ -1,5 +1,6 @@
 // src/services/ai.service.js
 import sharp from 'sharp';
+import { randomBytes } from 'crypto';
 
 const HF_MODEL_ID = "linkanjarad/mobilenet_v2_1.0_224-plant-disease-identification";
 const HF_API_URL = `https://router.huggingface.co/hf-inference/models/${HF_MODEL_ID}`;
@@ -11,6 +12,15 @@ if (!HF_API_TOKEN) {
 
 // Cache for alphabetical class names
 let alphabeticalClassNames = null;
+
+/**
+ * Generate a unique mask ID
+ * @returns {string} Unique mask identifier
+ */
+function generateMaskId() {
+  // Generate 12 random bytes (24 hex characters)
+  return randomBytes(12).toString('hex');
+}
 
 /**
  * Fetch the model's label mapping and return sorted list of class names.
@@ -122,9 +132,17 @@ async function convertToJpeg(inputBuffer, width = 224, height = 224) {
 }
 
 /**
- * Sends one mask buffer to HF API and returns classifications in alphabetical order.
+ * Sends one mask buffer to HF API and returns classifications in alphabetical order
+ * with a unique mask ID.
+ * @param {Buffer} imageBuffer - The mask image buffer
+ * @param {Object} options - Optional parameters
+ * @param {string} options.customMaskId - Optional custom mask ID (if not provided, auto-generated)
+ * @returns {Promise<Object>} Object containing maskId and classification results
  */
-export const analyzeLeafImage = async (imageBuffer) => {
+export const analyzeLeafImage = async (imageBuffer, options = {}) => {
+  // Generate unique ID for this mask
+  const maskId = options.customMaskId || generateMaskId();
+  
   // Ensure we have the alphabetical class list
   const alphabeticalLabels = await getAlphabeticalClassNames();
   
@@ -158,7 +176,6 @@ export const analyzeLeafImage = async (imageBuffer) => {
   }
 
   const result = await response.json();
-  
   // Extract raw classifications (should be array of {label, score})
   let rawClassifications = [];
   if (Array.isArray(result)) {
@@ -185,12 +202,49 @@ export const analyzeLeafImage = async (imageBuffer) => {
   // Reorder to alphabetical
   const alphabeticalClassifications = reorderToAlphabetical(rawClassifications, alphabeticalLabels);
   
-  return alphabeticalClassifications;
+  // Return both the mask ID and the classification results
+  return {
+    maskId: maskId,
+    classifications: alphabeticalClassifications,
+    timestamp: new Date().toISOString()
+  };
 };
 
 /**
- * Runs inference on multiple images in parallel, returning alphabetical results.
+ * Runs inference on multiple images in parallel, returning alphabetical results
+ * with unique IDs for each mask.
+ * @param {Array<Buffer>} imageBuffers - Array of mask image buffers
+ * @param {Array<string>} customMaskIds - Optional array of custom mask IDs
+ * @returns {Promise<Array<Object>>} Array of objects containing maskId and classification results
  */
-export const analyzeLeafImages = async (imageBuffers) => {
-  return Promise.all(imageBuffers.map(buf => analyzeLeafImage(buf)));
+export const analyzeLeafImages = async (imageBuffers, customMaskIds = []) => {
+  const results = await Promise.all(
+    imageBuffers.map((buf, index) => {
+      const options = {};
+      if (customMaskIds && customMaskIds[index]) {
+        options.customMaskId = customMaskIds[index];
+      }
+      return analyzeLeafImage(buf, options);
+    })
+  );
+  
+  return results;
+};
+
+/**
+ * Utility function to get the current timestamp in ISO format
+ * @returns {string} ISO timestamp
+ */
+export const getCurrentTimestamp = () => {
+  return new Date().toISOString();
+};
+
+/**
+ * Utility function to validate a mask ID format
+ * @param {string} maskId - The mask ID to validate
+ * @returns {boolean} True if valid format
+ */
+export const isValidMaskId = (maskId) => {
+  // Validates that maskId is a 24-character hex string
+  return /^[a-f0-9]{24}$/.test(maskId);
 };

@@ -1,6 +1,7 @@
 package com.tencent.yolo11ncnn
 
 import android.content.res.AssetManager
+import android.graphics.Bitmap
 import android.view.Surface
 
 class YOLO11Ncnn {
@@ -8,6 +9,10 @@ class YOLO11Ncnn {
     external fun openCamera(facing: Int): Boolean
     external fun closeCamera(): Boolean
     external fun setOutputWindow(surface: Surface?): Boolean
+    external fun toggleFlash(enable: Boolean): Boolean
+    external fun getDetectedMasks(): Array<Bitmap>?
+    external fun getLastFrame(): Bitmap?
+    external fun getCleanFrame(): Bitmap?
 
     companion object {
         init {

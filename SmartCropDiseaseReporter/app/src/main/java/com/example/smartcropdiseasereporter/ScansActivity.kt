@@ -1,5 +1,6 @@
 package com.example.smartcropdiseasereporter
 
+import android.content.Intent
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.util.Base64
@@ -7,16 +8,13 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.smartcropdiseasereporter.data.LoginDataSource
 import com.example.smartcropdiseasereporter.data.LoginRepository
-import com.example.smartcropdiseasereporter.data.api.ScanApiService
-import com.example.smartcropdiseasereporter.data.api.ScanImage
-import com.example.smartcropdiseasereporter.data.api.ScanListResponse
-import com.example.smartcropdiseasereporter.data.api.ScanSessionData
-import com.example.smartcropdiseasereporter.data.api.ScanSessionResponse
+import com.example.smartcropdiseasereporter.data.api.*
 import com.example.smartcropdiseasereporter.util.SettingsManager
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
@@ -25,6 +23,7 @@ import retrofit2.Callback
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
 
 class ScansActivity : AppCompatActivity() {
 
@@ -32,11 +31,11 @@ class ScansActivity : AppCompatActivity() {
     private lateinit var spinnerFilter: Spinner
     private lateinit var btnBack: ImageButton
     private lateinit var progressBar: ProgressBar
-    private lateinit var btnGenerateDiagnostic: Button
     
     private lateinit var settingsManager: SettingsManager
     private lateinit var loginRepository: LoginRepository
     private lateinit var apiService: ScanApiService
+    private lateinit var reportApiService: ReportApiService
     
     private var currentSessionId: String? = null
     private var allSessions: List<ScanSessionData> = emptyList()
@@ -66,8 +65,12 @@ class ScansActivity : AppCompatActivity() {
             chain.proceed(request)
         }
 
+        // Increased timeouts for AI generation which can take significant time
         val client = OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
+            .connectTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
             .build()
 
         val retrofit = Retrofit.Builder()
@@ -77,6 +80,7 @@ class ScansActivity : AppCompatActivity() {
             .build()
 
         apiService = retrofit.create(ScanApiService::class.java)
+        reportApiService = retrofit.create(ReportApiService::class.java)
     }
 
     private fun setupUI() {
@@ -84,30 +88,14 @@ class ScansActivity : AppCompatActivity() {
         rvScans.layoutManager = LinearLayoutManager(this)
         
         spinnerFilter = findViewById(R.id.spinnerSessionFilter)
-        val filters = if (currentSessionId != null) arrayOf("This Session", "All Sessions") else arrayOf("All Sessions")
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, filters)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerFilter.adapter = adapter
         
-        spinnerFilter.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                if (filters[position] == "This Session") {
-                    displaySessions(allSessions.filter { it.sessionId == currentSessionId })
-                } else {
-                    displaySessions(allSessions)
-                }
-            }
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
-        }
-
         btnBack = findViewById(R.id.btnBack)
         btnBack.setOnClickListener { finish() }
 
         progressBar = findViewById(R.id.progressBar)
-        btnGenerateDiagnostic = findViewById(R.id.btnGenerateDiagnostic)
-        btnGenerateDiagnostic.setOnClickListener {
-            Toast.makeText(this, "Diagnostic generation started...", Toast.LENGTH_SHORT).show()
-        }
+        
+        // Ensure the old global generate button is hidden as we now use per-scan buttons
+        findViewById<Button>(R.id.btnGenerateDiagnostic).visibility = View.GONE
     }
 
     private fun loadData() {
@@ -117,11 +105,8 @@ class ScansActivity : AppCompatActivity() {
                 progressBar.visibility = View.GONE
                 if (response.isSuccessful && response.body()?.success == true) {
                     allSessions = response.body()?.data ?: emptyList()
-                    if (currentSessionId != null && spinnerFilter.selectedItem == "This Session") {
-                        displaySessions(allSessions.filter { it.sessionId == currentSessionId })
-                    } else {
-                        displaySessions(allSessions)
-                    }
+                    setupSpinner()
+                    updateDisplay()
                 } else {
                     Toast.makeText(this@ScansActivity, "Failed to load scans", Toast.LENGTH_SHORT).show()
                 }
@@ -134,119 +119,163 @@ class ScansActivity : AppCompatActivity() {
         })
     }
 
+    private fun setupSpinner() {
+        val sessionNames = mutableListOf("All Sessions")
+        allSessions.forEachIndexed { index, _ ->
+            sessionNames.add("Item ${index + 1}")
+        }
+        
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, sessionNames)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerFilter.adapter = adapter
+
+        currentSessionId?.let { id ->
+            val index = allSessions.indexOfFirst { it.sessionId == id }
+            if (index != -1) {
+                spinnerFilter.setSelection(index + 1)
+            }
+        }
+
+        spinnerFilter.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                updateDisplay()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+    }
+
+    private fun updateDisplay() {
+        val selectedPos = spinnerFilter.selectedItemPosition
+        val filtered = if (selectedPos == 0) {
+            allSessions
+        } else {
+            listOf(allSessions[selectedPos - 1])
+        }
+        displaySessions(filtered)
+    }
+
     private fun displaySessions(sessions: List<ScanSessionData>) {
         val adapter = ScansAdapter(sessions)
         rvScans.adapter = adapter
     }
 
-    inner class ScansAdapter(private val sessions: List<ScanSessionData>) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+    inner class ScansAdapter(private val sessionsList: List<ScanSessionData>) : RecyclerView.Adapter<ScansAdapter.BatchHeaderViewHolder>() {
         
-        private val items = mutableListOf<Any>()
+        private val items = mutableListOf<Pair<ScanSessionData, ScanBatch>>()
 
         init {
-            sessions.forEach { session ->
-                items.add(session)
+            sessionsList.forEach { session ->
                 session.scans.forEach { batch ->
-                    batch.image.forEach { img ->
-                        items.add(img)
-                    }
+                    items.add(session to batch)
                 }
             }
         }
 
-        override fun getItemViewType(position: Int): Int {
-            return if (items[position] is ScanSessionData) 0 else 1
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BatchHeaderViewHolder {
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_scan_batch_header, parent, false)
+            return BatchHeaderViewHolder(view)
         }
 
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-            return if (viewType == 0) {
-                val view = LayoutInflater.from(parent.context).inflate(android.R.layout.simple_list_item_1, parent, false)
-                SessionHeaderViewHolder(view)
-            } else {
-                val view = LayoutInflater.from(parent.context).inflate(R.layout.item_scan_leaf, parent, false)
-                LeafViewHolder(view)
+        override fun onBindViewHolder(holder: BatchHeaderViewHolder, position: Int) {
+            val (session, batch) = items[position]
+            
+            val sessionIdx = allSessions.indexOfFirst { it._id == session._id } + 1
+            holder.tvTitle.text = "Session: Item $sessionIdx - Batch ${batch.scanId.take(8)}"
+            
+            // Image Toggle logic
+            var showMasked = true
+            fun updateImage() {
+                val base64 = if (showMasked) batch.originalImageMasked else batch.originalImageClean
+                if (!base64.isNullOrEmpty()) {
+                    try {
+                        val bytes = Base64.decode(base64, Base64.DEFAULT)
+                        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                        holder.ivOriginal.setImageBitmap(bitmap)
+                    } catch (e: Exception) {}
+                }
             }
-        }
+            updateImage()
+            holder.btnToggle.setOnClickListener {
+                showMasked = !showMasked
+                updateImage()
+                holder.btnToggle.setImageResource(if (showMasked) android.R.drawable.ic_menu_view else android.R.drawable.ic_menu_gallery)
+            }
 
-        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-            if (holder is SessionHeaderViewHolder) {
-                val session = items[position] as ScanSessionData
-                val plantType = determinePlantType(session)
-                holder.textView.text = "Title: $plantType"
-                holder.textView.textSize = 24f
-                holder.textView.setPadding(32, 32, 32, 16)
-            } else if (holder is LeafViewHolder) {
-                val img = items[position] as ScanImage
-                val session = findSessionForImage(position)
-                val plantType = determinePlantType(session)
-                
-                val bestLabel = img.classification_results.classifications
-                    .filter { it.label.contains(plantType, ignoreCase = true) }
-                    .maxByOrNull { it.score }?.label ?: img.classification_results.classifications.maxByOrNull { it.score }?.label ?: "Unknown"
+            // Detections List
+            holder.container.removeAllViews()
+            batch.detections.forEach { det ->
+                val detView = LayoutInflater.from(this@ScansActivity).inflate(R.layout.view_detection_row, holder.container, false)
+                val ivMask = detView.findViewById<ImageView>(R.id.ivSmallMask)
+                val tvLabel = detView.findViewById<TextView>(R.id.tvSmallLabel)
+                val tvConf = detView.findViewById<TextView>(R.id.tvSmallConf)
 
-                holder.tvLabel.text = bestLabel
-                holder.tvScore.text = "Confidence: ${String.format("%.2f%%", (img.classification_results.classifications.find { it.label == bestLabel }?.score ?: 0.0) * 100)}"
-                
+                val best = det.classificationResults.classifications.maxByOrNull { it.score }
+                tvLabel.text = best?.label?.replace("___", " ")?.replace("_", " ") ?: "Unknown"
+                tvConf.text = String.format("%.1f%%", (best?.score ?: 0.0) * 100)
+
                 try {
-                    val imageBytes = Base64.decode(img.mask, Base64.DEFAULT)
-                    val decodedImage = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
-                    holder.ivMask.setImageBitmap(decodedImage)
-                } catch (e: Exception) {
-                    holder.ivMask.setImageResource(android.R.drawable.ic_menu_report_image)
+                    val bytes = Base64.decode(det.mask, Base64.DEFAULT)
+                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    ivMask.setImageBitmap(bitmap)
+                } catch (e: Exception) {}
+
+                holder.container.addView(detView)
+            }
+
+            // Report generation logic
+            // User Clarification: enriched_context field is only found in scan doc with an existing report
+            // hasReport: true, reportId: ObjectId(...) exist when report is associated
+            // Generate button should only appear if hasReport is false or doesn't exist (null)
+            val hasReport = session.hasReport == true
+            if (!hasReport) {
+                holder.btnGenerate.visibility = View.VISIBLE
+                holder.btnGenerate.setOnClickListener {
+                    generateDiagnostic(session.sessionId)
                 }
+            } else {
+                holder.btnGenerate.visibility = View.GONE
             }
         }
 
         override fun getItemCount(): Int = items.size
 
-        private fun findSessionForImage(position: Int): ScanSessionData {
-            for (i in position downTo 0) {
-                if (items[i] is ScanSessionData) return items[i] as ScanSessionData
-            }
-            return sessions[0]
+        inner class BatchHeaderViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+            val tvTitle: TextView = view.findViewById(R.id.tvBatchTitle)
+            val ivOriginal: ImageView = view.findViewById(R.id.ivOriginalImage)
+            val btnToggle: ImageButton = view.findViewById(R.id.btnToggleMask)
+            val container: LinearLayout = view.findViewById(R.id.llDetectionsContainer)
+            val btnGenerate: Button = view.findViewById(R.id.btnGenerateReport)
         }
+    }
 
-        private fun determinePlantType(session: ScanSessionData): String {
-            val typeScores = mutableMapOf<String, Double>()
-            session.scans.forEach { batch ->
-                batch.image.forEach { img ->
-                    img.classification_results.classifications.forEach { cls ->
-                        val type = getPlantTypeFromLabel(cls.label)
-                        typeScores[type] = typeScores.getOrDefault(type, 0.0) + cls.score
-                    }
+    private fun generateDiagnostic(sessionId: String) {
+        progressBar.visibility = View.VISIBLE
+        reportApiService.generateReport(GenerateReportRequest(sessionId)).enqueue(object : Callback<GenerateReportResponse> {
+            override fun onResponse(call: Call<GenerateReportResponse>, response: Response<GenerateReportResponse>) {
+                progressBar.visibility = View.GONE
+                if (response.isSuccessful && response.body()?.success == true) {
+                    showSuccessDialog()
+                } else {
+                    Toast.makeText(this@ScansActivity, "Generation failed", Toast.LENGTH_SHORT).show()
                 }
             }
-            return typeScores.maxByOrNull { it.value }?.key ?: "Unknown"
-        }
 
-        private fun getPlantTypeFromLabel(label: String): String {
-            return when {
-                label.contains("Apple", true) -> "Apple"
-                label.contains("Bell Pepper", true) -> "Bell Pepper"
-                label.contains("Blueberry", true) -> "Blueberry"
-                label.contains("Cherry", true) -> "Cherry"
-                label.contains("Corn", true) || label.contains("Maize", true) -> "Corn (Maize)"
-                label.contains("Grape", true) -> "Grape"
-                label.contains("Orange", true) -> "Orange"
-                label.contains("Peach", true) -> "Peach"
-                label.contains("Potato", true) -> "Potato"
-                label.contains("Raspberry", true) -> "Raspberry"
-                label.contains("Soybean", true) -> "Soybean"
-                label.contains("Squash", true) -> "Squash"
-                label.contains("Strawberry", true) -> "Strawberry"
-                label.contains("Tomato", true) -> "Tomato"
-                else -> "Unknown"
+            override fun onFailure(call: Call<GenerateReportResponse>, t: Throwable) {
+                progressBar.visibility = View.GONE
+                Toast.makeText(this@ScansActivity, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
             }
-        }
+        })
+    }
 
-        class SessionHeaderViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-            val textView: TextView = view.findViewById(android.R.id.text1)
-        }
-
-        class LeafViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-            val tvLabel: TextView = view.findViewById(R.id.tvLeafLabel)
-            val ivMask: ImageView = view.findViewById(R.id.ivLeafMask)
-            val tvScore: TextView = view.findViewById(R.id.tvLeafScore)
-        }
+    private fun showSuccessDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Report Generated")
+            .setMessage("Your AI diagnostic report has been created successfully. Would you like to view it now?")
+            .setPositiveButton("View Reports") { _, _ ->
+                startActivity(Intent(this, ReportsActivity::class.java))
+                finish()
+            }
+            .setNegativeButton("Later", null)
+            .show()
     }
 }

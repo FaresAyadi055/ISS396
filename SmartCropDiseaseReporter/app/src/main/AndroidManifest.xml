@@ -36,6 +36,14 @@
             android:name=".CameraActivity"
             android:exported="false"
             android:label="Camera" />
+        <activity
+            android:name=".ScansActivity"
+            android:exported="false"
+            android:label="Scans" />
+        <activity
+            android:name=".ReportsActivity"
+            android:exported="false"
+            android:label="Reports" />
     </application>
 
 </manifest>

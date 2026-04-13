@@ -1,21 +1,64 @@
 import Report from '../models/Report.js'
+import connectDB from '@/lib/pool'
+
+async function ensureConnection() {
+  await connectDB()
+}
 
 // Create report
 export const createReport = async (reportData) => {
-  const { farmerId, imageUrl, diagnosis, treatment } = reportData
+  await ensureConnection()
 
-  if (!farmerId || !imageUrl || !diagnosis || !treatment) {
-    throw new Error('All fields are required')
+  const {
+    farmerId,
+    sessionId,
+    scanId,
+    diagnosis,
+    treatment,
+    fullReport,
+    enrichedContext,
+    reportData: structuredReportData,
+    embeddedImages,
+  } = reportData
+
+  if (!farmerId || !sessionId) {
+    throw new Error('farmerId and sessionId are required')
   }
 
   const report = await Report.create({
     farmerId,
-    imageUrl,
+    sessionId,
+    scanId,
     diagnosis,
     treatment,
+    fullReport,
+    enrichedContext,
+    reportData: structuredReportData,
+    embeddedImages,
+    status: 'completed',
   })
 
   return report
+}
+
+// Get reports by session
+export const getReportsBySession = async (sessionId, farmerId = null) => {
+  await ensureConnection()
+
+  const filter = { sessionId }
+  if (farmerId) {
+    filter.farmerId = farmerId
+  }
+
+  const reports = await Report.find(filter)
+    .sort({ createdAt: -1 })
+    .lean()
+
+  return {
+    success: true,
+    reports,
+    count: reports.length,
+  }
 }
 
 // Get all reports

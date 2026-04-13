@@ -31,6 +31,8 @@ export async function findOrCreateSession(userId, sessionId) {
       scans: [],
       totalDetections: 0,
       lastScannedAt: null,
+      hasReport: false,
+      reportId: null,
     });
   }
 
@@ -89,6 +91,33 @@ export async function getSession(mongoId, userId) {
   if (!doc) return null;
 
   return _serializeDoc(doc);
+}
+
+export async function getSessionBySessionId(sessionId, userId) {
+  await connectDB();
+
+  const doc = await Scan.findOne({ sessionId, userId }).lean({
+    virtuals: true,
+  });
+  if (!doc) return null;
+
+  return _serializeDoc(doc);
+}
+
+export async function markSessionHasReport(sessionId, userId, reportId) {
+  await connectDB();
+
+  const doc = await Scan.findOneAndUpdate(
+    { sessionId, userId },
+    { $set: { hasReport: true, reportId } },
+    { new: true }
+  );
+
+  if (!doc) {
+    throw new Error(`Scan session not found: ${sessionId}`);
+  }
+
+  return doc;
 }
 
 // ---------------------------------------------------------------------------
@@ -173,14 +202,21 @@ function _serializeDoc(doc) {
 
   return {
     ...doc,
+    hasReport: doc.hasReport || false,
+    reportId: doc.reportId || null,
     scans: doc.scans.map((scanEntry) => ({
       ...scanEntry,
-      image: (scanEntry.image || []).map((det) => ({
+      original_image_masked_base64: scanEntry.original_image_masked instanceof Buffer
+        ? scanEntry.original_image_masked.toString("base64")
+        : scanEntry.original_image_masked_base64,
+      original_image_clean_base64: scanEntry.original_image_clean instanceof Buffer
+        ? scanEntry.original_image_clean.toString("base64")
+        : scanEntry.original_image_clean_base64,
+      detections: (scanEntry.detections || []).map((det) => ({
         ...det,
-        mask:
-          det.mask instanceof Buffer
-            ? det.mask.toString("base64")
-            : (det.maskBase64 ?? det.mask),
+        maskBase64: det.mask instanceof Buffer
+          ? det.mask.toString("base64")
+          : det.maskBase64,
       })),
     })),
   };

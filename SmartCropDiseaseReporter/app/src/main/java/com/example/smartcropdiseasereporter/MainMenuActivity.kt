@@ -13,5 +13,15 @@ class MainMenuActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btn_open_camera).setOnClickListener {
             startActivity(Intent(this, CameraActivity::class.java))
         }
+
+        findViewById<Button>(R.id.btn_view_scans).setOnClickListener {
+            val intent = Intent(this, ScansActivity::class.java)
+            startActivity(intent)
+        }
+
+        findViewById<Button>(R.id.btn_view_reports).setOnClickListener {
+            val intent = Intent(this, ReportsActivity::class.java)
+            startActivity(intent)
+        }
     }
 }

@@ -43,4 +43,15 @@ class LoginRepository(val dataSource: LoginDataSource) {
         // If user credentials will be cached in local storage, it is recommended it be encrypted
         // @see https://developer.android.com/training/articles/keystore
     }
+
+    companion object {
+        @Volatile
+        private var instance: LoginRepository? = null
+
+        fun getInstance(dataSource: LoginDataSource): LoginRepository {
+            return instance ?: synchronized(this) {
+                instance ?: LoginRepository(dataSource).also { instance = it }
+            }
+        }
+    }
 }

@@ -81,15 +81,16 @@ export async function POST(req) {
     );
 
     // Run inference on all masks
-    const classificationArrays = await analyzeLeafImages(maskBuffers);
+    const analysisResults = await analyzeLeafImages(maskBuffers);
 
     // Build detections (each mask gets its own detection)
     const detections = maskBuffers.map((maskBuf, i) => ({
       mask: maskBuf.toString("base64"),
+      maskId: analysisResults[i].maskId,
       location,
       date,
       classification_results: {
-        classifications: classificationArrays[i],
+        classifications: analysisResults[i].classifications,
       },
     }));
 

@@ -15,7 +15,7 @@
 #include <android/asset_manager_jni.h>
 #include <android/native_window_jni.h>
 #include <android/native_window.h>
-
+#include <android/bitmap.h>
 #include <android/log.h>
 
 #include <jni.h>
@@ -126,6 +126,9 @@ static int draw_fps(cv::Mat& rgb, int obj_count = -1)
 
 static YOLO11* g_yolo11 = 0;
 static ncnn::Mutex lock;
+static cv::Mat g_last_frame;
+static cv::Mat g_last_frame_clean;
+static std::vector<Object> g_last_objects;
 
 class MyNdkCamera : public NdkCameraWindow
 {
@@ -145,7 +148,12 @@ void MyNdkCamera::on_image_render(cv::Mat& rgb) const
             std::vector<Object> objects;
             g_yolo11->detect(rgb, objects);
 
+            g_last_frame_clean = rgb.clone();
+
             g_yolo11->draw(rgb, objects);
+
+            g_last_frame = rgb.clone();
+            g_last_objects = objects;
 
             obj_count = (int)objects.size();
         }
@@ -295,6 +303,117 @@ JNIEXPORT jboolean JNICALL Java_com_tencent_yolo11ncnn_YOLO11Ncnn_setOutputWindo
     g_camera->set_window(win);
 
     return JNI_TRUE;
+}
+
+JNIEXPORT jboolean JNICALL Java_com_tencent_yolo11ncnn_YOLO11Ncnn_toggleFlash(JNIEnv* env, jobject thiz, jboolean enable)
+{
+    // Note: NDK Camera API flash control is complex. Simplified implementation.
+    return JNI_FALSE;
+}
+
+JNIEXPORT jobjectArray JNICALL Java_com_tencent_yolo11ncnn_YOLO11Ncnn_getDetectedMasks(JNIEnv* env, jobject thiz)
+{
+    ncnn::MutexLockGuard g(lock);
+
+    if (g_last_frame_clean.empty() || g_last_objects.empty())
+        return NULL;
+
+    jclass bitmapClass = env->FindClass("android/graphics/Bitmap");
+    jmethodID createBitmapMethod = env->GetStaticMethodID(bitmapClass, "createBitmap", "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;");
+    jclass configClass = env->FindClass("android/graphics/Bitmap$Config");
+    jfieldID argb8888Field = env->GetStaticFieldID(configClass, "ARGB_8888", "Landroid/graphics/Bitmap$Config;");
+    jobject argb8888Config = env->GetStaticObjectField(configClass, argb8888Field);
+
+    int count = g_last_objects.size();
+    jobjectArray bitmaps = env->NewObjectArray(count, bitmapClass, NULL);
+
+    for (int i = 0; i < count; i++)
+    {
+        const Object& obj = g_last_objects[i];
+
+        cv::Mat mask_rgb;
+        cv::Mat roi = g_last_frame_clean(obj.rect).clone();
+
+        // Apply mask: zero out pixels outside the mask
+        for (int y = 0; y < roi.rows; y++) {
+            for (int x = 0; x < roi.cols; x++) {
+                if (!obj.mask.at<uchar>(y, x)) {
+                    roi.at<cv::Vec3b>(y, x) = cv::Vec3b(0, 0, 0);
+                }
+            }
+        }
+
+        cv::cvtColor(roi, mask_rgb, cv::COLOR_BGR2RGBA);
+
+        jobject bitmap = env->CallStaticObjectMethod(bitmapClass, createBitmapMethod, mask_rgb.cols, mask_rgb.rows, argb8888Config);
+
+        AndroidBitmapInfo info;
+        void* pixels = 0;
+        AndroidBitmap_getInfo(env, bitmap, &info);
+        AndroidBitmap_lockPixels(env, bitmap, &pixels);
+        memcpy(pixels, mask_rgb.data, mask_rgb.cols * mask_rgb.rows * 4);
+        AndroidBitmap_unlockPixels(env, bitmap);
+
+        env->SetObjectArrayElement(bitmaps, i, bitmap);
+    }
+
+    return bitmaps;
+}
+
+JNIEXPORT jobject JNICALL Java_com_tencent_yolo11ncnn_YOLO11Ncnn_getLastFrame(JNIEnv* env, jobject thiz)
+{
+    ncnn::MutexLockGuard g(lock);
+
+    if (g_last_frame.empty())
+        return NULL;
+
+    jclass bitmapClass = env->FindClass("android/graphics/Bitmap");
+    jmethodID createBitmapMethod = env->GetStaticMethodID(bitmapClass, "createBitmap", "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;");
+    jclass configClass = env->FindClass("android/graphics/Bitmap$Config");
+    jfieldID argb8888Field = env->GetStaticFieldID(configClass, "ARGB_8888", "Landroid/graphics/Bitmap$Config;");
+    jobject argb8888Config = env->GetStaticObjectField(configClass, argb8888Field);
+
+    cv::Mat frame_rgba;
+    cv::cvtColor(g_last_frame, frame_rgba, cv::COLOR_BGR2RGBA);
+
+    jobject bitmap = env->CallStaticObjectMethod(bitmapClass, createBitmapMethod, frame_rgba.cols, frame_rgba.rows, argb8888Config);
+
+    AndroidBitmapInfo info;
+    void* pixels = 0;
+    AndroidBitmap_getInfo(env, bitmap, &info);
+    AndroidBitmap_lockPixels(env, bitmap, &pixels);
+    memcpy(pixels, frame_rgba.data, frame_rgba.cols * frame_rgba.rows * 4);
+    AndroidBitmap_unlockPixels(env, bitmap);
+
+    return bitmap;
+}
+
+JNIEXPORT jobject JNICALL Java_com_tencent_yolo11ncnn_YOLO11Ncnn_getCleanFrame(JNIEnv* env, jobject thiz)
+{
+    ncnn::MutexLockGuard g(lock);
+
+    if (g_last_frame_clean.empty())
+        return NULL;
+
+    jclass bitmapClass = env->FindClass("android/graphics/Bitmap");
+    jmethodID createBitmapMethod = env->GetStaticMethodID(bitmapClass, "createBitmap", "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;");
+    jclass configClass = env->FindClass("android/graphics/Bitmap$Config");
+    jfieldID argb8888Field = env->GetStaticFieldID(configClass, "ARGB_8888", "Landroid/graphics/Bitmap$Config;");
+    jobject argb8888Config = env->GetStaticObjectField(configClass, argb8888Field);
+
+    cv::Mat frame_rgba;
+    cv::cvtColor(g_last_frame_clean, frame_rgba, cv::COLOR_BGR2RGBA);
+
+    jobject bitmap = env->CallStaticObjectMethod(bitmapClass, createBitmapMethod, frame_rgba.cols, frame_rgba.rows, argb8888Config);
+
+    AndroidBitmapInfo info;
+    void* pixels = 0;
+    AndroidBitmap_getInfo(env, bitmap, &info);
+    AndroidBitmap_lockPixels(env, bitmap, &pixels);
+    memcpy(pixels, frame_rgba.data, frame_rgba.cols * frame_rgba.rows * 4);
+    AndroidBitmap_unlockPixels(env, bitmap);
+
+    return bitmap;
 }
 
 }

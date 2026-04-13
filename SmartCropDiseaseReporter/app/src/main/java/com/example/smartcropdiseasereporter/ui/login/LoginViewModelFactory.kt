@@ -18,7 +18,7 @@ class LoginViewModelFactory(private val context: Context) : ViewModelProvider.Fa
         if (modelClass.isAssignableFrom(LoginViewModel::class.java)) {
             val settingsManager = SettingsManager(context)
             return LoginViewModel(
-                loginRepository = LoginRepository(
+                loginRepository = LoginRepository.getInstance(
                     dataSource = LoginDataSource(settingsManager)
                 )
             ) as T
