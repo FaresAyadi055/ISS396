@@ -3,6 +3,7 @@ import { GoogleGenAI } from '@google/genai';
 import { createReport } from './report.service.js';
 import { getSessionBySessionId, markSessionHasReport } from './scan.service.js';
 import { parseAIReport, formatSectionsForDisplay } from './reportParser.service.js';
+import { embedImagesInText, getEmbeddedImageCount } from './imageEmbed.service.js';
 
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
 
@@ -128,31 +129,6 @@ ${topClassifications.map(c => `  - ${c.label}: ${(c.score * 100).toFixed(2)}%`).
   return scanText || 'No scan data available';
 }
 
-function extractEmbeddedImages(scanDoc) {
-  const embedded = {
-    original_image_masked: null,
-    original_image_clean: null,
-    leaves: {},
-  };
-
-  const firstScan = scanDoc.scans?.[0];
-  if (firstScan) {
-    embedded.original_image_masked = firstScan.original_image_masked_base64 || null;
-    embedded.original_image_clean = firstScan.original_image_clean_base64 || null;
-  }
-
-  for (const scan of scanDoc.scans || []) {
-    for (const det of scan.detections || []) {
-      const maskId = det.maskId || Object.keys(embedded.leaves).length.toString();
-      if (det.maskBase64) {
-        embedded.leaves[maskId] = det.maskBase64;
-      }
-    }
-  }
-
-  return embedded;
-}
-
 export async function generateCropReport(sessionId, userId) {
   const SYSTEM_PROMPT = await loadPrompt();
   
@@ -226,18 +202,30 @@ Format your response with clear sections: DIAGNOSTIC REPORT, SCAN ID, CROP, DATE
   });
 
   const aiResponse = response.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const embeddedReportText = embedImagesInText(aiResponse, scanDoc);
+  const embeddedImageCount = getEmbeddedImageCount(embeddedReportText);
 
-  const parsedReport = parseAIReport(aiResponse, scanDoc);
+  const parsedReport = parseAIReport(embeddedReportText, scanDoc);
   const formattedSections = formatSectionsForDisplay(parsedReport);
 
-  const embeddedImages = extractEmbeddedImages(scanDoc);
-  
-  const diagnosisMatch = aiResponse.match(/\*\*Diagnosis\*\*:?\s*([\s\S]*?)(?=\*\*|$)/i);
-  const treatmentMatch = aiResponse.match(/\*\*Treatment(?:s| Plan)?\*\*:?\s*([\s\S]*?)(?=\*\*|$)/i);
-  const preventionMatch = aiResponse.match(/\*\*Prevention\*\*:?\s*([\s\S]*?)(?=\*\*|$)/i);
+  const diagnosisMatch = embeddedReportText.match(/\*\*Diagnosis\*\*:?\s*([\s\S]*?)(?=\*\*|$)/i);
+  const treatmentMatch = embeddedReportText.match(/\*\*Treatment(?:s| Plan)?\*\*:?\s*([\s\S]*?)(?=\*\*|$)/i);
 
   const diagnosis = diagnosisMatch?.[1]?.trim() || formattedSections.summary || 'Analysis completed';
   const treatment = treatmentMatch?.[1]?.trim() || formattedSections.management || 'See full report';
+
+  const embeddedImages = {
+    original_image_masked: null,
+    original_image_clean: null,
+    leaves: {},
+  };
+  const firstScan = scanDoc.scans?.[0];
+  if (firstScan?.original_image_masked_base64) {
+    embeddedImages.original_image_masked = firstScan.original_image_masked_base64;
+  }
+  if (firstScan?.original_image_clean_base64) {
+    embeddedImages.original_image_clean = firstScan.original_image_clean_base64;
+  }
 
   const report = await createReport({
     farmerId: userId,
@@ -245,7 +233,7 @@ Format your response with clear sections: DIAGNOSTIC REPORT, SCAN ID, CROP, DATE
     scanId: scanDoc.scans?.[0]?.scan_id,
     diagnosis,
     treatment,
-    fullReport: aiResponse,
+    fullReport: embeddedReportText,
     enrichedContext,
     reportData: formattedSections,
     embeddedImages,
@@ -257,6 +245,7 @@ Format your response with clear sections: DIAGNOSTIC REPORT, SCAN ID, CROP, DATE
     ...report.toObject(),
     reportData: formattedSections,
     embeddedImages,
+    embeddedImageCount,
   };
 }
 

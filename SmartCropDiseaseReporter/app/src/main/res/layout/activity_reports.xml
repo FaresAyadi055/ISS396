@@ -32,6 +32,12 @@
             android:textColor="@android:color/white"
             android:textSize="20sp"
             android:textStyle="bold" />
+
+        <Spinner
+            android:id="@+id/spinnerReportFilter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@android:color/white" />
     </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView

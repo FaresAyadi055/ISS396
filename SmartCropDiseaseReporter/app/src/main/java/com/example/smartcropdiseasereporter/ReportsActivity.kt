@@ -1,6 +1,8 @@
 package com.example.smartcropdiseasereporter
 
+import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.util.Base64
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -11,11 +13,10 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.smartcropdiseasereporter.data.LoginDataSource
 import com.example.smartcropdiseasereporter.data.LoginRepository
-import com.example.smartcropdiseasereporter.data.api.GetReportsResponse
-import com.example.smartcropdiseasereporter.data.api.Report
-import com.example.smartcropdiseasereporter.data.api.ReportApiService
+import com.example.smartcropdiseasereporter.data.api.*
 import com.example.smartcropdiseasereporter.util.SettingsManager
 import io.noties.markwon.Markwon
+import io.noties.markwon.image.ImagesPlugin
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import retrofit2.Call
@@ -32,23 +33,33 @@ class ReportsActivity : AppCompatActivity() {
     private lateinit var progressBar: ProgressBar
     private lateinit var btnBack: ImageButton
     private lateinit var tvNoReports: TextView
+    private lateinit var spinnerFilter: Spinner
     private lateinit var markwon: Markwon
 
     private lateinit var settingsManager: SettingsManager
     private lateinit var loginRepository: LoginRepository
-    private lateinit var apiService: ReportApiService
+    private lateinit var reportApiService: ReportApiService
+    private lateinit var scanApiService: ScanApiService
+    
+    private var allSessions: List<ScanSessionData> = emptyList()
+    private var currentSessionId: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_reports)
 
+        currentSessionId = intent.getStringExtra("SESSION_ID")
+
         settingsManager = SettingsManager(this)
         loginRepository = LoginRepository.getInstance(LoginDataSource(settingsManager))
-        markwon = Markwon.create(this)
+        
+        markwon = Markwon.builder(this)
+            .usePlugin(ImagesPlugin.create())
+            .build()
 
         setupApi()
         setupUI()
-        loadReports()
+        loadSessions()
     }
 
     private fun setupApi() {
@@ -72,7 +83,8 @@ class ReportsActivity : AppCompatActivity() {
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
-        apiService = retrofit.create(ReportApiService::class.java)
+        reportApiService = retrofit.create(ReportApiService::class.java)
+        scanApiService = retrofit.create(ScanApiService::class.java)
     }
 
     private fun setupUI() {
@@ -82,21 +94,69 @@ class ReportsActivity : AppCompatActivity() {
         progressBar = findViewById(R.id.progressBarReports)
         btnBack = findViewById(R.id.btnBackReports)
         tvNoReports = findViewById(R.id.tvNoReports)
+        spinnerFilter = findViewById(R.id.spinnerReportFilter)
 
         btnBack.setOnClickListener { finish() }
     }
 
-    private fun loadReports() {
+    private fun loadSessions() {
+        progressBar.visibility = View.VISIBLE
+        scanApiService.getSessions().enqueue(object : Callback<ScanListResponse> {
+            override fun onResponse(call: Call<ScanListResponse>, response: Response<ScanListResponse>) {
+                if (response.isSuccessful && response.body()?.success == true) {
+                    allSessions = response.body()?.data ?: emptyList()
+                    setupSpinner()
+                } else {
+                    progressBar.visibility = View.GONE
+                    loadReports(null)
+                }
+            }
+
+            override fun onFailure(call: Call<ScanListResponse>, t: Throwable) {
+                progressBar.visibility = View.GONE
+                loadReports(null)
+            }
+        })
+    }
+
+    private fun setupSpinner() {
+        val sessionNames = mutableListOf("All Sessions")
+        allSessions.forEachIndexed { index, _ ->
+            sessionNames.add("Item ${index + 1}")
+        }
+        
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, sessionNames)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerFilter.adapter = adapter
+
+        currentSessionId?.let { id ->
+            val index = allSessions.indexOfFirst { it.sessionId == id }
+            if (index != -1) {
+                spinnerFilter.setSelection(index + 1)
+            }
+        }
+
+        spinnerFilter.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val sessionId = if (position == 0) null else allSessions[position - 1].sessionId
+                loadReports(sessionId)
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+    }
+
+    private fun loadReports(sessionId: String?) {
         progressBar.visibility = View.VISIBLE
         tvNoReports.visibility = View.GONE
         
-        apiService.getReports().enqueue(object : Callback<GetReportsResponse> {
+        reportApiService.getReports(sessionId = sessionId).enqueue(object : Callback<GetReportsResponse> {
             override fun onResponse(call: Call<GetReportsResponse>, response: Response<GetReportsResponse>) {
                 progressBar.visibility = View.GONE
                 if (response.isSuccessful && response.body()?.success == true) {
                     val reports = response.body()?.reports ?: emptyList()
                     if (reports.isEmpty()) {
                         tvNoReports.visibility = View.VISIBLE
+                        rvReports.adapter = null
                     } else {
                         rvReports.adapter = ReportsAdapter(reports)
                     }
@@ -121,22 +181,46 @@ class ReportsActivity : AppCompatActivity() {
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val report = reports[position]
-            val header = report.reportData.header
+            val header = report.reportData?.header
             
-            holder.tvTitle.text = "${header.crop} Diagnosis - ${header.primaryFinding}"
+            // Strictly extract Crop and Result from the header
+            val crop = header?.crop ?: "Unknown Crop"
+            val result = header?.result ?: "No Result"
             
-            // Format date
+            holder.tvTitle.text = "$crop - $result"
+            holder.tvTitle.visibility = View.VISIBLE
+            
             try {
-                val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
-                val outputFormat = SimpleDateFormat("MMM dd, yyyy - HH:mm", Locale.getDefault())
-                val date = inputFormat.parse(report.createdAt)
-                holder.tvDate.text = outputFormat.format(date!!)
+                val createdAt = report.createdAt
+                if (createdAt != null) {
+                    val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+                    val outputFormat = SimpleDateFormat("MMM dd, yyyy - HH:mm", Locale.getDefault())
+                    val date = inputFormat.parse(createdAt)
+                    holder.tvDate.text = outputFormat.format(date!!)
+                } else {
+                    holder.tvDate.text = "Date Unknown"
+                }
             } catch (e: Exception) {
-                holder.tvDate.text = report.createdAt
+                holder.tvDate.text = report.createdAt ?: "Date Unknown"
             }
 
-            holder.tvDiagnosis.text = report.diagnosis
-            holder.tvTreatment.text = report.treatment
+            val base64Image = report.embeddedImages?.originalImageClean
+            if (!base64Image.isNullOrBlank()) {
+                try {
+                    val cleanBase64 = if (base64Image.startsWith("data:image")) {
+                        base64Image.substringAfter("base64,")
+                    } else {
+                        base64Image
+                    }
+                    val imageBytes = Base64.decode(cleanBase64, Base64.DEFAULT)
+                    val decodedImage = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                    holder.ivThumbnail.setImageBitmap(decodedImage)
+                } catch (e: Exception) {
+                    holder.ivThumbnail.setImageResource(android.R.drawable.ic_menu_gallery)
+                }
+            } else {
+                holder.ivThumbnail.setImageResource(android.R.drawable.ic_menu_gallery)
+            }
 
             holder.btnFullReport.setOnClickListener {
                 showFullReportDialog(report)
@@ -148,8 +232,7 @@ class ReportsActivity : AppCompatActivity() {
         inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             val tvTitle: TextView = view.findViewById(R.id.tvReportTitle)
             val tvDate: TextView = view.findViewById(R.id.tvReportDate)
-            val tvDiagnosis: TextView = view.findViewById(R.id.tvDiagnosis)
-            val tvTreatment: TextView = view.findViewById(R.id.tvTreatment)
+            val ivThumbnail: ImageView = view.findViewById(R.id.ivReportThumbnail)
             val btnFullReport: Button = view.findViewById(R.id.btnViewFullReport)
         }
     }
@@ -158,8 +241,7 @@ class ReportsActivity : AppCompatActivity() {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_full_report, null)
         val tvContent = dialogView.findViewById<TextView>(R.id.tvFullReportContent)
         
-        // Render Markdown instead of raw text
-        markwon.setMarkdown(tvContent, report.fullReport)
+        markwon.setMarkdown(tvContent, report.fullReport ?: "Report content not available.")
 
         AlertDialog.Builder(this)
             .setTitle("Detailed AI Report")

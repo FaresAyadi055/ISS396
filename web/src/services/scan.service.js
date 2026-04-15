@@ -7,6 +7,7 @@
 
 import Scan from "@/models/Scan";
 import connectDB from "@/lib/pool";
+import { _isBufferLike, _bufferToBase64 } from "./imageEmbed.service.js";
 
 // ---------------------------------------------------------------------------
 // findOrCreateSession
@@ -204,20 +205,35 @@ function _serializeDoc(doc) {
     ...doc,
     hasReport: doc.hasReport || false,
     reportId: doc.reportId || null,
-    scans: doc.scans.map((scanEntry) => ({
-      ...scanEntry,
-      original_image_masked_base64: scanEntry.original_image_masked instanceof Buffer
-        ? scanEntry.original_image_masked.toString("base64")
-        : scanEntry.original_image_masked_base64,
-      original_image_clean_base64: scanEntry.original_image_clean instanceof Buffer
-        ? scanEntry.original_image_clean.toString("base64")
-        : scanEntry.original_image_clean_base64,
-      detections: (scanEntry.detections || []).map((det) => ({
-        ...det,
-        maskBase64: det.mask instanceof Buffer
-          ? det.mask.toString("base64")
-          : det.maskBase64,
-      })),
-    })),
+    scans: doc.scans.map((scanEntry) => {
+      const serializedScan = { ...scanEntry };
+
+      if (_isBufferLike(scanEntry.original_image_masked)) {
+        const b64 = _bufferToBase64(scanEntry.original_image_masked);
+        if (b64) serializedScan.original_image_masked_base64 = b64;
+      } else if (typeof scanEntry.original_image_masked === 'string' && scanEntry.original_image_masked.length > 100) {
+        serializedScan.original_image_masked_base64 = scanEntry.original_image_masked;
+      }
+
+      if (_isBufferLike(scanEntry.original_image_clean)) {
+        const b64 = _bufferToBase64(scanEntry.original_image_clean);
+        if (b64) serializedScan.original_image_clean_base64 = b64;
+      } else if (typeof scanEntry.original_image_clean === 'string' && scanEntry.original_image_clean.length > 100) {
+        serializedScan.original_image_clean_base64 = scanEntry.original_image_clean;
+      }
+
+      serializedScan.detections = (scanEntry.detections || []).map((det) => {
+        const serializedDet = { ...det };
+        if (_isBufferLike(det.mask)) {
+          const b64 = _bufferToBase64(det.mask);
+          if (b64) serializedDet.maskBase64 = b64;
+        } else if (typeof det.mask === 'string' && det.mask.length > 100) {
+          serializedDet.maskBase64 = det.mask;
+        }
+        return serializedDet;
+      });
+
+      return serializedScan;
+    }),
   };
 }

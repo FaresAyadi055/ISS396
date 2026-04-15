@@ -65,7 +65,6 @@ class ScansActivity : AppCompatActivity() {
             chain.proceed(request)
         }
 
-        // Increased timeouts for AI generation which can take significant time
         val client = OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .connectTimeout(60, TimeUnit.SECONDS)
@@ -94,7 +93,6 @@ class ScansActivity : AppCompatActivity() {
 
         progressBar = findViewById(R.id.progressBar)
         
-        // Ensure the old global generate button is hidden as we now use per-scan buttons
         findViewById<Button>(R.id.btnGenerateDiagnostic).visibility = View.GONE
     }
 
@@ -182,7 +180,6 @@ class ScansActivity : AppCompatActivity() {
             val sessionIdx = allSessions.indexOfFirst { it._id == session._id } + 1
             holder.tvTitle.text = "Session: Item $sessionIdx - Batch ${batch.scanId.take(8)}"
             
-            // Image Toggle logic
             var showMasked = true
             fun updateImage() {
                 val base64 = if (showMasked) batch.originalImageMasked else batch.originalImageClean
@@ -201,13 +198,13 @@ class ScansActivity : AppCompatActivity() {
                 holder.btnToggle.setImageResource(if (showMasked) android.R.drawable.ic_menu_view else android.R.drawable.ic_menu_gallery)
             }
 
-            // Detections List
             holder.container.removeAllViews()
             batch.detections.forEach { det ->
                 val detView = LayoutInflater.from(this@ScansActivity).inflate(R.layout.view_detection_row, holder.container, false)
                 val ivMask = detView.findViewById<ImageView>(R.id.ivSmallMask)
                 val tvLabel = detView.findViewById<TextView>(R.id.tvSmallLabel)
                 val tvConf = detView.findViewById<TextView>(R.id.tvSmallConf)
+                val tvRes = detView.findViewById<TextView>(R.id.tvSmallResolution)
 
                 val best = det.classificationResults.classifications.maxByOrNull { it.score }
                 tvLabel.text = best?.label?.replace("___", " ")?.replace("_", " ") ?: "Unknown"
@@ -217,15 +214,12 @@ class ScansActivity : AppCompatActivity() {
                     val bytes = Base64.decode(det.mask, Base64.DEFAULT)
                     val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
                     ivMask.setImageBitmap(bitmap)
+                    tvRes.text = "Resolution: ${bitmap.width}x${bitmap.height}"
                 } catch (e: Exception) {}
 
                 holder.container.addView(detView)
             }
 
-            // Report generation logic
-            // User Clarification: enriched_context field is only found in scan doc with an existing report
-            // hasReport: true, reportId: ObjectId(...) exist when report is associated
-            // Generate button should only appear if hasReport is false or doesn't exist (null)
             val hasReport = session.hasReport == true
             if (!hasReport) {
                 holder.btnGenerate.visibility = View.VISIBLE
@@ -254,7 +248,7 @@ class ScansActivity : AppCompatActivity() {
             override fun onResponse(call: Call<GenerateReportResponse>, response: Response<GenerateReportResponse>) {
                 progressBar.visibility = View.GONE
                 if (response.isSuccessful && response.body()?.success == true) {
-                    showSuccessDialog()
+                    showSuccessDialog(sessionId)
                 } else {
                     Toast.makeText(this@ScansActivity, "Generation failed", Toast.LENGTH_SHORT).show()
                 }
@@ -267,12 +261,14 @@ class ScansActivity : AppCompatActivity() {
         })
     }
 
-    private fun showSuccessDialog() {
+    private fun showSuccessDialog(sessionId: String) {
         AlertDialog.Builder(this)
             .setTitle("Report Generated")
             .setMessage("Your AI diagnostic report has been created successfully. Would you like to view it now?")
             .setPositiveButton("View Reports") { _, _ ->
-                startActivity(Intent(this, ReportsActivity::class.java))
+                val intent = Intent(this, ReportsActivity::class.java)
+                intent.putExtra("SESSION_ID", sessionId)
+                startActivity(intent)
                 finish()
             }
             .setNegativeButton("Later", null)

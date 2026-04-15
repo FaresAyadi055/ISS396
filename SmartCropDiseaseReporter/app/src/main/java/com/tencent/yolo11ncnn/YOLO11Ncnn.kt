@@ -13,6 +13,8 @@ class YOLO11Ncnn {
     external fun getDetectedMasks(): Array<Bitmap>?
     external fun getLastFrame(): Bitmap?
     external fun getCleanFrame(): Bitmap?
+    external fun captureStill(): Boolean
+    external fun isStillCaptured(): Boolean
 
     companion object {
         init {

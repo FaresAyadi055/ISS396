@@ -56,6 +56,7 @@ const reportSchema = new mongoose.Schema(
       header: {
         scanId: String,
         crop: String,
+        result: String,
         date: String,
         location: [Number],
         leavesAnalyzed: Number,

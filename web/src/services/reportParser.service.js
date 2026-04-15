@@ -1,20 +1,21 @@
 const IMAGE_REF_REGEX = /(?:original_image_masked|original_image_clean|leaf=([a-zA-Z0-9-]+))/gi;
 
+// Only true top-level section boundaries belong here.
+// Metadata fields (Scan ID, Crop, Result, Date & Time) live *inside* the header
+// block — including them here caused the entire line to be consumed as a
+// delimiter, silently dropping the values that follow the colon.
 const SECTION_HEADERS = [
   { pattern: /=== DIAGNOSTIC REPORT ===/i, key: 'header' },
-  { pattern: /\*\*SCAN ID:\*\*|SCAN ID:/i, key: 'scan_id' },
-  { pattern: /\*\*CROP:\*\*|CROP:/i, key: 'crop' },
-  { pattern: /\*\*DATE & TIME:\*\*|DATE & TIME:/i, key: 'date_time' },
-  { pattern: /\*\*SUMMARY:\*\*|SUMMARY:/i, key: 'summary' },
-  { pattern: /\*\*PER-LEAF DETAILS:\*\*|PER-LEAF DETAILS:/i, key: 'per_leaf_details' },
-  { pattern: /\*\*MANAGEMENT RECOMMENDATIONS:\*\*|MANAGEMENT RECOMMENDATIONS:/i, key: 'management' },
-  { pattern: /\*\*NEXT STEPS FOR USER:\*\*|NEXT STEPS FOR USER:/i, key: 'next_steps' },
+  { pattern: /###\s*SUMMARY:|^\*\*SUMMARY:\*\*\s*$|^SUMMARY:\s*$/im, key: 'summary' },
+  { pattern: /###\s*PER-LEAF DETAILS:|^\*\*PER-LEAF DETAILS:\*\*\s*$|^PER-LEAF DETAILS:\s*$/im, key: 'per_leaf_details' },
+  { pattern: /###\s*MANAGEMENT RECOMMENDATIONS:|^\*\*MANAGEMENT RECOMMENDATIONS:\*\*\s*$|^MANAGEMENT RECOMMENDATIONS:\s*$/im, key: 'management' },
+  { pattern: /###\s*NEXT STEPS FOR USER:|^\*\*NEXT STEPS FOR USER:\*\*\s*$|^NEXT STEPS FOR USER:\s*$/im, key: 'next_steps' },
 ];
 
 function extractSections(text) {
   const sections = {};
   const lines = text.split('\n');
-  let currentSection = 'header';
+  let currentSection = 'preamble'; // anything before the first recognised header
   let currentContent = [];
 
   for (const line of lines) {
@@ -51,8 +52,12 @@ function parseHeader(scanDoc) {
     .filter(c => c.score > 0)
     .sort((a, b) => b.score - a.score)[0];
 
+  // Labels are expected in the form  "Apple___Apple_scab"
   const cropMatch = topClass?.label?.match(/^([^_]+)___/);
-  const crop = cropMatch ? cropMatch[1].replace(/_/g, ' ') : 'Unknown';
+  const crop = cropMatch ? cropMatch[1].replace(/_/g, ' ') : null;
+
+  const resultMatch = topClass?.label?.match(/___(.+)$/);
+  const result = resultMatch ? resultMatch[1].replace(/_/g, ' ') : null;
 
   const positiveScores = classifications.filter(c => c.score > 0);
   const avgConfidence = positiveScores.length > 0
@@ -61,7 +66,8 @@ function parseHeader(scanDoc) {
 
   return {
     scanId: firstScan?.scan_id || 'N/A',
-    crop,
+    crop,   // null when the label format doesn't match — AI text wins
+    result, // null when the label format doesn't match — AI text wins
     date: new Date().toISOString(),
     location: firstDetection?.location || [],
     leavesAnalyzed: scanDoc.totalDetections || 0,
@@ -110,7 +116,8 @@ function parsePerLeafDetails(text, scanDoc) {
   }
 
   if (leafDetails.length === 0 && allDetections.length > 0) {
-    const topClassifications = allDetections[0].classification_results?.classifications || []
+    // Fix: wrap in parens so .filter() chains on the array, not on []
+    const topClassifications = (allDetections[0].classification_results?.classifications || [])
       .filter(c => c.score > 0.05)
       .sort((a, b) => b.score - a.score);
 
@@ -142,45 +149,57 @@ function extractImageReferences(text) {
   return Array.from(refs);
 }
 
-function embedImages(text, scanDoc) {
-  const refs = extractImageReferences(text);
-  const embedded = {
-    original_image_masked: null,
-    original_image_clean: null,
-    leaves: {},
-  };
+function countEmbeddedImages(text) {
+  if (!text) return 0;
+  const matches = text.match(/data:image\/png;base64,/g);
+  return matches ? matches.length : 0;
+}
 
-  for (const ref of refs) {
-    if (ref === 'original_image_masked') {
-      const base64 = scanDoc.scans?.[0]?.original_image_masked_base64;
-      if (base64) {
-        embedded.original_image_masked = base64;
-      }
-    } else if (ref === 'original_image_clean') {
-      const base64 = scanDoc.scans?.[0]?.original_image_clean_base64;
-      if (base64) {
-        embedded.original_image_clean = base64;
-      }
-    } else if (ref.startsWith('leaf=')) {
-      const maskId = ref.replace('leaf=', '');
-      const detection = scanDoc.scans
-        ?.flatMap(s => s.detections || [])
-        .find(d => d.maskId === maskId);
-      
-      if (detection?.maskBase64) {
-        embedded.leaves[maskId] = detection.maskBase64;
-      }
-    }
-  }
+function extractHeaderFromText(headerBlock) {
+  const result = {};
 
-  return embedded;
+  if (!headerBlock) return result;
+
+  // Match value up to the next newline (real \n) or end of string.
+  // The AI output uses real newlines, so a simple [^\n]+ capture is reliable.
+  const field = (label) =>
+    new RegExp(`\\*\\*${label}:\\*\\*\\s*([^\\n]+)`, 'i');
+  const fieldPlain = (label) =>
+    new RegExp(`${label}:\\s*([^\\n]+)`, 'i');
+
+  const cropMatch = headerBlock.match(field('Crop')) || headerBlock.match(fieldPlain('Crop'));
+  if (cropMatch) result.crop = cropMatch[1].trim().replace(/\*\*/g, '');
+
+  const resultMatch = headerBlock.match(field('Result')) || headerBlock.match(fieldPlain('Result'));
+  if (resultMatch) result.result = resultMatch[1].trim().replace(/\*\*/g, '');
+
+  const scanIdMatch = headerBlock.match(field('Scan ID')) || headerBlock.match(fieldPlain('Scan ID'));
+  if (scanIdMatch) result.scanId = scanIdMatch[1].trim().replace(/\*\*/g, '');
+
+  const dateMatch =
+    headerBlock.match(/\*\*Date.*?:\*\*\s*([^\n]+)/i) ||
+    headerBlock.match(/Date.*?:\s*([^\n]+)/i);
+  if (dateMatch) result.dateFromAI = dateMatch[1].trim();
+
+  return result;
 }
 
 export function parseAIReport(aiText, scanDoc) {
   const sections = extractSections(aiText);
-  const header = parseHeader(scanDoc);
+  const headerFromText = extractHeaderFromText(sections.header);
+  const headerFromScan = parseHeader(scanDoc);
+
+  const header = {
+    ...headerFromScan,
+    ...headerFromText,
+    // AI text always wins; fall back to scan-doc parse; last resort 'Unknown'
+    crop:   headerFromText.crop   || headerFromScan.crop   || 'Unknown',
+    result: headerFromText.result || headerFromScan.result || 'Unknown',
+    scanId: headerFromText.scanId || headerFromScan.scanId,
+  };
+
   const perLeafDetails = parsePerLeafDetails(sections.per_leaf_details || '', scanDoc);
-  const embeddedImages = embedImages(aiText, scanDoc);
+  const embeddedImageCount = countEmbeddedImages(aiText);
 
   return {
     header,
@@ -189,7 +208,8 @@ export function parseAIReport(aiText, scanDoc) {
     managementRecommendations: sections.management || '',
     nextSteps: sections.next_steps || '',
     rawText: aiText,
-    embeddedImages,
+    embeddedImageCount,
+    imageReferences: extractImageReferences(aiText),
   };
 }
 
@@ -199,6 +219,7 @@ export function formatSectionsForDisplay(parsedReport) {
       title: 'Diagnostic Report',
       scanId: parsedReport.header.scanId,
       crop: parsedReport.header.crop,
+      result: parsedReport.header.result || null,
       date: parsedReport.header.date,
       location: parsedReport.header.location,
       stats: {
@@ -215,6 +236,6 @@ export function formatSectionsForDisplay(parsedReport) {
     })),
     management: parsedReport.managementRecommendations,
     nextSteps: parsedReport.nextSteps,
-    images: parsedReport.embeddedImages,
+    embeddedImageCount: parsedReport.embeddedImageCount,
   };
 }

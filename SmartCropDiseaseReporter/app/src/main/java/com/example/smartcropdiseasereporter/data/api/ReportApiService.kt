@@ -36,47 +36,48 @@ data class GetReportsResponse(
 data class Report(
     val _id: String,
     val sessionId: String,
-    @SerializedName("scan_id") val scanId: String?,
-    val diagnosis: String,
-    val treatment: String,
-    @SerializedName("full_report") val fullReport: String,
-    @SerializedName("report_data") val reportData: ReportData,
-    @SerializedName("embedded_images") val embeddedImages: EmbeddedImages,
-    @SerializedName("enriched_context") val enrichedContext: EnrichedContext,
-    val status: String,
-    val createdAt: String
+    val scanId: String?,
+    val diagnosis: String?,
+    val treatment: String?,
+    val fullReport: String?,
+    val reportData: ReportData?,
+    val embeddedImages: EmbeddedImages?,
+    val enrichedContext: EnrichedContext?,
+    val status: String?,
+    val createdAt: String?
 )
 
 data class ReportData(
-    val header: ReportHeader,
-    val summary: String,
-    @SerializedName("per_leaf_details") val perLeafDetails: List<LeafDetail>,
-    @SerializedName("management_recommendations") val managementRecommendations: String,
-    @SerializedName("next_steps") val nextSteps: String
+    val header: ReportHeader?,
+    val summary: String?,
+    val perLeafDetails: List<LeafDetail>?,
+    val managementRecommendations: String?,
+    val nextSteps: String?
 )
 
 data class ReportHeader(
-    @SerializedName("scan_id") val scanId: String,
-    val crop: String,
-    val date: String,
-    val location: List<Double>,
-    @SerializedName("leaves_analyzed") val leavesAnalyzed: Int,
-    @SerializedName("primary_finding") val primaryFinding: String?,
-    @SerializedName("avg_confidence") val avgConfidence: String
+    val scanId: String?,
+    val crop: String?,
+    val result: String?,
+    val date: String?,
+    val location: List<Double>?,
+    val leavesAnalyzed: Int?,
+    val primaryFinding: String?,
+    val avgConfidence: String?
 )
 
 data class LeafDetail(
-    @SerializedName("leaf_index") val leafIndex: Int,
-    val disease: String,
-    val confidence: Double,
-    val severity: String,
-    @SerializedName("affected_area") val affectedArea: Int?,
-    @SerializedName("mask_id") val maskId: String?
+    val leafIndex: Int?,
+    val disease: String?,
+    val confidence: Double?,
+    val severity: String?,
+    val affectedArea: Int?,
+    val maskId: String?
 )
 
 data class EmbeddedImages(
-    val original_image_masked: String?,
-    val original_image_clean: String?,
+    @SerializedName("original_image_masked") val originalImageMasked: String?,
+    @SerializedName("original_image_clean") val originalImageClean: String?,
     val leaves: Map<String, String>?
 )
 

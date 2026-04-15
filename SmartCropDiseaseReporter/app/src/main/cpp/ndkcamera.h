@@ -39,20 +39,31 @@ public:
 
     virtual void on_image(const unsigned char* nv21, int nv21_width, int nv21_height) const;
 
+    // High resolution still capture
+    void capture_still();
+    virtual void on_still_image(const cv::Mat& rgb) const;
+
 public:
     int camera_facing;
     int camera_orientation;
 
-private:
+    AImageReader* image_reader;
+    AImageReader* still_image_reader;
+
+protected:
     ACameraManager* camera_manager;
     ACameraDevice* camera_device;
-    AImageReader* image_reader;
     ANativeWindow* image_reader_surface;
     ACameraOutputTarget* image_reader_target;
     ACaptureRequest* capture_request;
     ACaptureSessionOutputContainer* capture_session_output_container;
     ACaptureSessionOutput* capture_session_output;
     ACameraCaptureSession* capture_session;
+
+    // Still capture members
+    ANativeWindow* still_image_reader_surface;
+    ACameraOutputTarget* still_image_reader_target;
+    ACaptureSessionOutput* still_capture_session_output;
 };
 
 class NdkCameraWindow : public NdkCamera

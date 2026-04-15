@@ -11,6 +11,7 @@ import android.view.SurfaceView
 import android.view.View
 import android.view.WindowManager
 import android.widget.*
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -20,6 +21,7 @@ import com.example.smartcropdiseasereporter.data.LoginRepository
 import com.example.smartcropdiseasereporter.util.SettingsManager
 import com.tencent.yolo11ncnn.YOLO11Ncnn
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.*
@@ -34,14 +36,11 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
 
     private val yolo11ncnn = YOLO11Ncnn()
     private var facing = 1 // Default to Back camera
-    private var isFlashOn = false
     private val sessionId = UUID.randomUUID().toString()
 
-    private lateinit var spinnerResolution: Spinner
-    private lateinit var spinnerProcessor: Spinner
     private lateinit var btnAnalyze: Button
     private lateinit var btnBack: ImageButton
-    private lateinit var btnFlash: ImageButton
+    private lateinit var btnSettings: ImageButton
     private lateinit var controlPanel: LinearLayout
     private lateinit var resultPanel: LinearLayout
     private lateinit var btnContinue: Button
@@ -51,8 +50,8 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
 
     private lateinit var settingsManager: SettingsManager
     private lateinit var loginRepository: LoginRepository
-    private var currentModelId = 0 // n-320
-    private var currentCpuGpu = 0 // CPU
+    private var currentModelId = 3 // Default to n-480
+    private var currentCpuGpu = 1 // Default to GPU
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -71,11 +70,9 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
         val cameraView = findViewById<SurfaceView>(R.id.cameraview)
         cameraView.holder.addCallback(this)
 
-        spinnerResolution = findViewById(R.id.spinnerResolution)
-        spinnerProcessor = findViewById(R.id.spinnerProcessor)
         btnAnalyze = findViewById(R.id.btnAnalyze)
         btnBack = findViewById(R.id.btnBack)
-        btnFlash = findViewById(R.id.btnFlash)
+        btnSettings = findViewById(R.id.btnSettings)
         controlPanel = findViewById(R.id.controlPanel)
         resultPanel = findViewById(R.id.resultPanel)
         btnContinue = findViewById(R.id.btnContinue)
@@ -83,7 +80,6 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
         btnViewScan = findViewById(R.id.btnViewScan)
         loadingProgress = findViewById(R.id.loadingProgress)
 
-        setupSpinners()
         setupButtons()
         
         reloadModel()
@@ -103,9 +99,8 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
             onBackPressed()
         }
 
-        btnFlash.setOnClickListener {
-            isFlashOn = !isFlashOn
-            yolo11ncnn.toggleFlash(isFlashOn)
+        btnSettings.setOnClickListener {
+            showSettingsDialog()
         }
 
         btnContinue.setOnClickListener {
@@ -124,33 +119,89 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
         }
     }
 
+    private fun showSettingsDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_camera_settings, null)
+        val spinnerRes = dialogView.findViewById<Spinner>(R.id.spinnerDialogResolution)
+        val spinnerProc = dialogView.findViewById<Spinner>(R.id.spinnerDialogProcessor)
+
+        val resolutions = arrayOf("n-320", "n-480", "n-640")
+        val resAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, resolutions)
+        resAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerRes.adapter = resAdapter
+        
+        val initialResPos = when (currentModelId) {
+            0 -> 0
+            3 -> 1
+            6 -> 2
+            else -> 0
+        }
+        spinnerRes.setSelection(initialResPos)
+
+        val processors = arrayOf("CPU", "GPU", "Turnip")
+        val procAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, processors)
+        procAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerProc.adapter = procAdapter
+        spinnerProc.setSelection(currentCpuGpu)
+
+        AlertDialog.Builder(this)
+            .setTitle("Model Settings")
+            .setView(dialogView)
+            .setPositiveButton("Apply") { _, _ ->
+                currentModelId = when (spinnerRes.selectedItemPosition) {
+                    0 -> 0 // n-320
+                    1 -> 3 // n-480
+                    2 -> 6 // n-640
+                    else -> 0
+                }
+                currentCpuGpu = spinnerProc.selectedItemPosition
+                reloadModel()
+                Toast.makeText(this, "Settings applied", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
     private fun analyzeFrame() {
         val user = loginRepository.user ?: return
-
-        val maskedBitmap = yolo11ncnn.getLastFrame()
-        val cleanBitmap = yolo11ncnn.getCleanFrame()
-        val masks = yolo11ncnn.getDetectedMasks()
-        
-        if (masks == null || masks.isEmpty()) {
-            Toast.makeText(this, "No leaves detected to analyze", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        if (maskedBitmap == null || cleanBitmap == null) {
-            Toast.makeText(this, "Could not capture frames", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val backendUrl = settingsManager.getBackendUrl()
-        if (backendUrl.isBlank()) {
-            Toast.makeText(this, "Backend URL not configured", Toast.LENGTH_SHORT).show()
-            return
-        }
 
         loadingProgress.visibility = View.VISIBLE
         controlPanel.visibility = View.GONE
 
         lifecycleScope.launch {
+            yolo11ncnn.captureStill()
+            
+            var timeout = 0
+            while (!yolo11ncnn.isStillCaptured() && timeout < 50) { 
+                delay(50)
+                timeout++
+            }
+
+            val maskedBitmap = yolo11ncnn.getLastFrame() 
+            val cleanBitmap = yolo11ncnn.getCleanFrame() 
+            val masks = yolo11ncnn.getDetectedMasks() 
+            
+            if (masks == null || masks.isEmpty()) {
+                loadingProgress.visibility = View.GONE
+                controlPanel.visibility = View.VISIBLE
+                Toast.makeText(this@CameraActivity, "No leaves detected", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+
+            if (maskedBitmap == null || cleanBitmap == null) {
+                loadingProgress.visibility = View.GONE
+                controlPanel.visibility = View.VISIBLE
+                Toast.makeText(this@CameraActivity, "Capture failed", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+
+            val backendUrl = settingsManager.getBackendUrl()
+            if (backendUrl.isBlank()) {
+                loadingProgress.visibility = View.GONE
+                controlPanel.visibility = View.VISIBLE
+                Toast.makeText(this@CameraActivity, "URL not configured", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+
             try {
                 val request = withContext(Dispatchers.IO) {
                     val builder = MultipartBody.Builder()
@@ -159,19 +210,16 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
                         .addFormDataPart("location", "[10.1815, 36.8065]")
                         .addFormDataPart("date", SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).format(Date()))
 
-                    // Original Masked Image
                     val maskedStream = ByteArrayOutputStream()
                     maskedBitmap.compress(Bitmap.CompressFormat.JPEG, 70, maskedStream)
                     builder.addFormDataPart("original_image_masked", "masked.jpg", 
                         maskedStream.toByteArray().toRequestBody("image/jpeg".toMediaTypeOrNull()))
 
-                    // Original Clean Image
                     val cleanStream = ByteArrayOutputStream()
                     cleanBitmap.compress(Bitmap.CompressFormat.JPEG, 70, cleanStream)
                     builder.addFormDataPart("original_image_clean", "clean.jpg", 
                         cleanStream.toByteArray().toRequestBody("image/jpeg".toMediaTypeOrNull()))
 
-                    // Individual Masks
                     masks.forEachIndexed { index, bitmap ->
                         val stream = ByteArrayOutputStream()
                         bitmap.compress(Bitmap.CompressFormat.JPEG, 80, stream)
@@ -199,21 +247,18 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
                         runOnUiThread {
                             loadingProgress.visibility = View.GONE
                             controlPanel.visibility = View.VISIBLE
-                            Log.e("CameraActivity", "Upload error: ${e.message}", e)
-                            Toast.makeText(this@CameraActivity, "Upload Failed: ${e.message}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(this@CameraActivity, "Upload Failed", Toast.LENGTH_LONG).show()
                         }
                     }
 
                     override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
-                        val responseBody = response.body?.string()
                         runOnUiThread {
                             loadingProgress.visibility = View.GONE
                             if (response.isSuccessful) {
-                                Toast.makeText(this@CameraActivity, "Analysis successful!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this@CameraActivity, "Success!", Toast.LENGTH_SHORT).show()
                                 resultPanel.visibility = View.VISIBLE
                             } else {
-                                Log.e("CameraActivity", "Upload failed (${response.code}): $responseBody")
-                                Toast.makeText(this@CameraActivity, "Server error: ${response.code}", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this@CameraActivity, "Server error", Toast.LENGTH_SHORT).show()
                                 controlPanel.visibility = View.VISIBLE
                             }
                         }
@@ -222,40 +267,8 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
             } catch (e: Exception) {
                 loadingProgress.visibility = View.GONE
                 controlPanel.visibility = View.VISIBLE
-                Log.e("CameraActivity", "Failed to prepare upload: ${e.message}", e)
-                Toast.makeText(this@CameraActivity, "Preparation failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@CameraActivity, "Preparation failed", Toast.LENGTH_SHORT).show()
             }
-        }
-    }
-
-    private fun setupSpinners() {
-        val resolutions = arrayOf("n-320", "n-480", "n-640")
-        val resolutionAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, resolutions)
-        resolutionAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerResolution.adapter = resolutionAdapter
-        spinnerResolution.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                currentModelId = when (position) {
-                    0 -> 0 // n-320
-                    1 -> 3 // n-480
-                    2 -> 6 // n-640
-                    else -> 0
-                }
-                reloadModel()
-            }
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
-        }
-
-        val processors = arrayOf("CPU", "GPU", "Turnip")
-        val processorAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, processors)
-        processorAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        spinnerProcessor.adapter = processorAdapter
-        spinnerProcessor.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                currentCpuGpu = position
-                reloadModel()
-            }
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
     }
 
@@ -268,8 +281,7 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
         super.onResume()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
             == PackageManager.PERMISSION_GRANTED) {
-            val ret = yolo11ncnn.openCamera(facing)
-            Log.d("CameraActivity", "openCamera: $ret")
+            yolo11ncnn.openCamera(facing)
         }
     }
 

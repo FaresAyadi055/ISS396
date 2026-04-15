@@ -65,6 +65,7 @@ dependencies {
 
     // Markdown Rendering
     implementation("io.noties.markwon:core:4.6.2")
+    implementation("io.noties.markwon:image:4.6.2")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
