@@ -1,0 +1,11 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Base.Theme.SmartCropDiseaseReporter" parent="Theme.Material3.Light.NoActionBar">
+        <!-- Customize your light theme here. -->
+        <item name="colorPrimary">@color/green_end</item>
+        <item name="android:statusBarColor">@color/green_end</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+    </style>
+
+    <style name="Theme.SmartCropDiseaseReporter" parent="Base.Theme.SmartCropDiseaseReporter" />
+</resources>

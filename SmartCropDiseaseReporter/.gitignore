@@ -1,0 +1,29 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+/.idea/shelf
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Kotlin
+.kotlin/
+
+# Built variants
+*.apk
+*.aar
+*.ap_
+*.aab
+
+# CPP packages
+/app/src/main/cpp/ncnn-*
+/app/src/main/cpp/opencv-mobile-*
