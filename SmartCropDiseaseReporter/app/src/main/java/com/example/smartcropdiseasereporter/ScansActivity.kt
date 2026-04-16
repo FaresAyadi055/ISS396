@@ -15,6 +15,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.smartcropdiseasereporter.data.LoginDataSource
 import com.example.smartcropdiseasereporter.data.LoginRepository
 import com.example.smartcropdiseasereporter.data.api.*
+import com.example.smartcropdiseasereporter.util.CacheManager
 import com.example.smartcropdiseasereporter.util.SettingsManager
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
@@ -34,8 +35,9 @@ class ScansActivity : AppCompatActivity() {
     
     private lateinit var settingsManager: SettingsManager
     private lateinit var loginRepository: LoginRepository
-    private lateinit var apiService: ScanApiService
-    private lateinit var reportApiService: ReportApiService
+    private lateinit var cacheManager: CacheManager
+    private var apiService: ScanApiService? = null
+    private var reportApiService: ReportApiService? = null
     
     private var currentSessionId: String? = null
     private var allSessions: List<ScanSessionData> = emptyList()
@@ -48,6 +50,7 @@ class ScansActivity : AppCompatActivity() {
 
         settingsManager = SettingsManager(this)
         loginRepository = LoginRepository.getInstance(LoginDataSource(settingsManager))
+        cacheManager = CacheManager(this)
         
         setupApi()
         setupUI()
@@ -97,24 +100,44 @@ class ScansActivity : AppCompatActivity() {
     }
 
     private fun loadData() {
+        val service = apiService
+        if (service == null) {
+            loadFromCache()
+            return
+        }
+
         progressBar.visibility = View.VISIBLE
-        apiService.getSessions().enqueue(object : Callback<ScanListResponse> {
+        service.getSessions().enqueue(object : Callback<ScanListResponse> {
             override fun onResponse(call: Call<ScanListResponse>, response: Response<ScanListResponse>) {
                 progressBar.visibility = View.GONE
                 if (response.isSuccessful && response.body()?.success == true) {
-                    allSessions = response.body()?.data ?: emptyList()
+                    val data = response.body()!!
+                    allSessions = data.data ?: emptyList()
+                    cacheManager.saveScans(data)
                     setupSpinner()
                     updateDisplay()
                 } else {
-                    Toast.makeText(this@ScansActivity, "Failed to load scans", Toast.LENGTH_SHORT).show()
+                    loadFromCache()
                 }
             }
 
             override fun onFailure(call: Call<ScanListResponse>, t: Throwable) {
                 progressBar.visibility = View.GONE
-                Toast.makeText(this@ScansActivity, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                loadFromCache()
             }
         })
+    }
+
+    private fun loadFromCache() {
+        val cached = cacheManager.getScans()
+        if (cached != null) {
+            allSessions = cached.data ?: emptyList()
+            setupSpinner()
+            updateDisplay()
+            Toast.makeText(this, "Showing cached data (Offline)", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "No data available offline", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun setupSpinner() {
@@ -221,7 +244,7 @@ class ScansActivity : AppCompatActivity() {
             }
 
             val hasReport = session.hasReport == true
-            if (!hasReport) {
+            if (!hasReport && reportApiService != null) {
                 holder.btnGenerate.visibility = View.VISIBLE
                 holder.btnGenerate.setOnClickListener {
                     generateDiagnostic(session.sessionId)
@@ -243,8 +266,9 @@ class ScansActivity : AppCompatActivity() {
     }
 
     private fun generateDiagnostic(sessionId: String) {
+        val service = reportApiService ?: return
         progressBar.visibility = View.VISIBLE
-        reportApiService.generateReport(GenerateReportRequest(sessionId)).enqueue(object : Callback<GenerateReportResponse> {
+        service.generateReport(GenerateReportRequest(sessionId)).enqueue(object : Callback<GenerateReportResponse> {
             override fun onResponse(call: Call<GenerateReportResponse>, response: Response<GenerateReportResponse>) {
                 progressBar.visibility = View.GONE
                 if (response.isSuccessful && response.body()?.success == true) {
