@@ -21,6 +21,10 @@ const ClassificationResultSchema = new mongoose.Schema(
         message: "classifications must contain exactly 38 entries",
       },
     },
+    best_result: {
+      type: ClassificationEntrySchema,
+      required: true,
+    },
   },
   { _id: false }
 );
@@ -89,13 +93,24 @@ ScanSchema.index({ userId: 1, sessionId: 1 });
 
 // Instance method: append one scan batch
 ScanSchema.methods.appendScan = function (scanEntry) {
-  const detections = (scanEntry.detections || []).map((det) => ({
-    mask: Buffer.from(det.mask, "base64"),
-    maskId: det.maskId,
-    location: det.location,
-    date: det.date ? new Date(det.date) : new Date(),
-    classification_results: det.classification_results,
-  }));
+  const detections = (scanEntry.detections || []).map((det) => {
+    const classifications = det.classification_results?.classifications || [];
+    const bestResult = classifications.reduce(
+      (best, current) => (current.score > best.score ? current : best),
+      { label: "", score: 0 }
+    );
+
+    return {
+      mask: Buffer.from(det.mask, "base64"),
+      maskId: det.maskId,
+      location: det.location,
+      date: det.date ? new Date(det.date) : new Date(),
+      classification_results: {
+        classifications,
+        best_result: bestResult,
+      },
+    };
+  });
 
   this.scans.push({
     scan_id: scanEntry.scan_id,
