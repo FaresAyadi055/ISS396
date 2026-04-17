@@ -43,7 +43,8 @@ class LoginDataSource(private val settingsManager: SettingsManager) {
                     return Result.Success(
                         LoggedInUser(
                             userId = loginResponse.user.id,
-                            displayName = loginResponse.user.name
+                            displayName = loginResponse.user.name,
+                            token = loginResponse.token ?: ""
                         )
                     )
                 }

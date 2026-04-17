@@ -9,11 +9,13 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-openmp")
 
 # 2. Setup OpenCV
-set(OpenCV_DIR "${CMAKE_SOURCE_DIR}/opencv-mobile-2.4.13.7-android/sdk/native/jni")
+# If extracted directly, the folder name is usually opencv-mobile-2.4.13.7-android
+set(OpenCV_DIR "${CMAKE_CURRENT_SOURCE_DIR}/opencv-mobile-2.4.13.7-android/sdk/native/jni")
 find_package(OpenCV REQUIRED core imgproc)
 
 # 3. Setup ncnn
-set(ncnn_DIR "${CMAKE_SOURCE_DIR}/ncnn-20260113-android-vulkan/${ANDROID_ABI}/lib/cmake/ncnn")
+# ncnn is usually extracted into a folder like ncnn-20260113-android-vulkan
+set(ncnn_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ncnn-20260113-android-vulkan/${ANDROID_ABI}/lib/cmake/ncnn")
 find_package(ncnn REQUIRED)
 
 # 4. List Source Files

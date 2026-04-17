@@ -5,7 +5,7 @@
  * Creates test users and reports with proper bcrypt hashing
  */
 
-require('dotenv').config({ path: require('path').join(__dirname, '../.env.local') });
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 

@@ -27,17 +27,16 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 class ScansActivity : AppCompatActivity() {
-
     private lateinit var rvScans: RecyclerView
     private lateinit var spinnerFilter: Spinner
     private lateinit var btnBack: ImageButton
     private lateinit var progressBar: ProgressBar
     private lateinit var btnGenerateDiagnostic: Button
-    
+
     private lateinit var settingsManager: SettingsManager
     private lateinit var loginRepository: LoginRepository
     private lateinit var apiService: ScanApiService
-    
+
     private var currentSessionId: String? = null
     private var allSessions: List<ScanSessionData> = emptyList()
 
@@ -49,7 +48,7 @@ class ScansActivity : AppCompatActivity() {
 
         settingsManager = SettingsManager(this)
         loginRepository = LoginRepository.getInstance(LoginDataSource(settingsManager))
-        
+
         setupApi()
         setupUI()
         loadData()
@@ -58,23 +57,31 @@ class ScansActivity : AppCompatActivity() {
     private fun setupApi() {
         val user = loginRepository.user ?: return
         val backendUrl = settingsManager.getBackendUrl()
-        
-        val authInterceptor = Interceptor { chain ->
-            val request = chain.request().newBuilder()
-                .addHeader("Authorization", "Bearer ${user.token}")
+
+        val authInterceptor =
+            Interceptor { chain ->
+                val request =
+                    chain
+                        .request()
+                        .newBuilder()
+                        .addHeader("Authorization", "Bearer ${user.token}")
+                        .build()
+                chain.proceed(request)
+            }
+
+        val client =
+            OkHttpClient
+                .Builder()
+                .addInterceptor(authInterceptor)
                 .build()
-            chain.proceed(request)
-        }
 
-        val client = OkHttpClient.Builder()
-            .addInterceptor(authInterceptor)
-            .build()
-
-        val retrofit = Retrofit.Builder()
-            .baseUrl(if (backendUrl.endsWith("/")) backendUrl else "$backendUrl/")
-            .client(client)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
+        val retrofit =
+            Retrofit
+                .Builder()
+                .baseUrl(if (backendUrl.endsWith("/")) backendUrl else "$backendUrl/")
+                .client(client)
+                .addConverterFactory(GsonConverterFactory.create())
+                .build()
 
         apiService = retrofit.create(ScanApiService::class.java)
     }
@@ -82,23 +89,30 @@ class ScansActivity : AppCompatActivity() {
     private fun setupUI() {
         rvScans = findViewById(R.id.rvScans)
         rvScans.layoutManager = LinearLayoutManager(this)
-        
+
         spinnerFilter = findViewById(R.id.spinnerSessionFilter)
         val filters = if (currentSessionId != null) arrayOf("This Session", "All Sessions") else arrayOf("All Sessions")
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, filters)
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinnerFilter.adapter = adapter
-        
-        spinnerFilter.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                if (filters[position] == "This Session") {
-                    displaySessions(allSessions.filter { it.sessionId == currentSessionId })
-                } else {
-                    displaySessions(allSessions)
+
+        spinnerFilter.onItemSelectedListener =
+            object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(
+                    parent: AdapterView<*>?,
+                    view: View?,
+                    position: Int,
+                    id: Long,
+                ) {
+                    if (filters[position] == "This Session") {
+                        displaySessions(allSessions.filter { it.sessionId == currentSessionId })
+                    } else {
+                        displaySessions(allSessions)
+                    }
                 }
+
+                override fun onNothingSelected(parent: AdapterView<*>?) {}
             }
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
-        }
 
         btnBack = findViewById(R.id.btnBack)
         btnBack.setOnClickListener { finish() }
@@ -112,26 +126,34 @@ class ScansActivity : AppCompatActivity() {
 
     private fun loadData() {
         progressBar.visibility = View.VISIBLE
-        apiService.getSessions().enqueue(object : Callback<ScanListResponse> {
-            override fun onResponse(call: Call<ScanListResponse>, response: Response<ScanListResponse>) {
-                progressBar.visibility = View.GONE
-                if (response.isSuccessful && response.body()?.success == true) {
-                    allSessions = response.body()?.data ?: emptyList()
-                    if (currentSessionId != null && spinnerFilter.selectedItem == "This Session") {
-                        displaySessions(allSessions.filter { it.sessionId == currentSessionId })
+        apiService.getSessions().enqueue(
+            object : Callback<ScanListResponse> {
+                override fun onResponse(
+                    call: Call<ScanListResponse>,
+                    response: Response<ScanListResponse>,
+                ) {
+                    progressBar.visibility = View.GONE
+                    if (response.isSuccessful && response.body()?.success == true) {
+                        allSessions = response.body()?.data ?: emptyList()
+                        if (currentSessionId != null && spinnerFilter.selectedItem == "This Session") {
+                            displaySessions(allSessions.filter { it.sessionId == currentSessionId })
+                        } else {
+                            displaySessions(allSessions)
+                        }
                     } else {
-                        displaySessions(allSessions)
+                        Toast.makeText(this@ScansActivity, "Failed to load scans", Toast.LENGTH_SHORT).show()
                     }
-                } else {
-                    Toast.makeText(this@ScansActivity, "Failed to load scans", Toast.LENGTH_SHORT).show()
                 }
-            }
 
-            override fun onFailure(call: Call<ScanListResponse>, t: Throwable) {
-                progressBar.visibility = View.GONE
-                Toast.makeText(this@ScansActivity, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
-            }
-        })
+                override fun onFailure(
+                    call: Call<ScanListResponse>,
+                    t: Throwable,
+                ) {
+                    progressBar.visibility = View.GONE
+                    Toast.makeText(this@ScansActivity, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                }
+            },
+        )
     }
 
     private fun displaySessions(sessions: List<ScanSessionData>) {
@@ -139,8 +161,23 @@ class ScansActivity : AppCompatActivity() {
         rvScans.adapter = adapter
     }
 
-    inner class ScansAdapter(private val sessions: List<ScanSessionData>) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-        
+    class SessionHeaderViewHolder(
+        view: View,
+    ) : RecyclerView.ViewHolder(view) {
+        val textView: TextView = view.findViewById(android.R.id.text1)
+    }
+
+    class LeafViewHolder(
+        view: View,
+    ) : RecyclerView.ViewHolder(view) {
+        val tvLabel: TextView = view.findViewById(R.id.tvLeafLabel)
+        val ivMask: ImageView = view.findViewById(R.id.ivLeafMask)
+        val tvScore: TextView = view.findViewById(R.id.tvLeafScore)
+    }
+
+    inner class ScansAdapter(
+        private val sessions: List<ScanSessionData>,
+    ) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
         private val items = mutableListOf<Any>()
 
         init {
@@ -154,21 +191,24 @@ class ScansActivity : AppCompatActivity() {
             }
         }
 
-        override fun getItemViewType(position: Int): Int {
-            return if (items[position] is ScanSessionData) 0 else 1
-        }
+        override fun getItemViewType(position: Int): Int = if (items[position] is ScanSessionData) 0 else 1
 
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-            return if (viewType == 0) {
+        override fun onCreateViewHolder(
+            parent: ViewGroup,
+            viewType: Int,
+        ): RecyclerView.ViewHolder =
+            if (viewType == 0) {
                 val view = LayoutInflater.from(parent.context).inflate(android.R.layout.simple_list_item_1, parent, false)
                 SessionHeaderViewHolder(view)
             } else {
                 val view = LayoutInflater.from(parent.context).inflate(R.layout.item_scan_leaf, parent, false)
                 LeafViewHolder(view)
             }
-        }
 
-        override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        override fun onBindViewHolder(
+            holder: RecyclerView.ViewHolder,
+            position: Int,
+        ) {
             if (holder is SessionHeaderViewHolder) {
                 val session = items[position] as ScanSessionData
                 val plantType = determinePlantType(session)
@@ -179,14 +219,27 @@ class ScansActivity : AppCompatActivity() {
                 val img = items[position] as ScanImage
                 val session = findSessionForImage(position)
                 val plantType = determinePlantType(session)
-                
-                val bestLabel = img.classification_results.classifications
-                    .filter { it.label.contains(plantType, ignoreCase = true) }
-                    .maxByOrNull { it.score }?.label ?: img.classification_results.classifications.maxByOrNull { it.score }?.label ?: "Unknown"
+
+                val bestLabel =
+                    img.classification_results.classifications
+                        .filter { it.label.contains(plantType, ignoreCase = true) }
+                        .maxByOrNull { it.score }
+                        ?.label ?: img.classification_results.classifications
+                        .maxByOrNull { it.score }
+                        ?.label
+                        ?: "Unknown"
 
                 holder.tvLabel.text = bestLabel
-                holder.tvScore.text = "Confidence: ${String.format("%.2f%%", (img.classification_results.classifications.find { it.label == bestLabel }?.score ?: 0.0) * 100)}"
-                
+                holder.tvScore.text =
+                    "Confidence: ${String.format(
+                        "%.2f%%",
+                        (
+                            img.classification_results.classifications
+                                .find { it.label == bestLabel }
+                                ?.score ?: 0.0
+                        ) * 100,
+                    )}"
+
                 try {
                     val imageBytes = Base64.decode(img.mask, Base64.DEFAULT)
                     val decodedImage = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
@@ -219,8 +272,8 @@ class ScansActivity : AppCompatActivity() {
             return typeScores.maxByOrNull { it.value }?.key ?: "Unknown"
         }
 
-        private fun getPlantTypeFromLabel(label: String): String {
-            return when {
+        private fun getPlantTypeFromLabel(label: String): String =
+            when {
                 label.contains("Apple", true) -> "Apple"
                 label.contains("Bell Pepper", true) -> "Bell Pepper"
                 label.contains("Blueberry", true) -> "Blueberry"
@@ -237,16 +290,5 @@ class ScansActivity : AppCompatActivity() {
                 label.contains("Tomato", true) -> "Tomato"
                 else -> "Unknown"
             }
-        }
-
-        class SessionHeaderViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-            val textView: TextView = view.findViewById(android.R.id.text1)
-        }
-
-        class LeafViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-            val tvLabel: TextView = view.findViewById(R.id.tvLeafLabel)
-            val ivMask: ImageView = view.findViewById(R.id.ivLeafMask)
-            val tvScore: TextView = view.findViewById(R.id.tvLeafScore)
-        }
     }
 }

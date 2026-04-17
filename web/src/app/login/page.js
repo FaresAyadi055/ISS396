@@ -3,273 +3,232 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
-import { Mail, Lock, Sprout, Eye, EyeOff, AlertCircle } from 'lucide-react'
-import Image from 'next/image'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  const [email, setEmail] = useState('admin@smartcrop.dev')
+  const [password, setPassword] = useState('admin123')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [rememberMe, setRememberMe] = useState(false)
   const router = useRouter()
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault()
-    setError('')
     setLoading(true)
-
-    // Basic validation
-    if (!email || !password) {
-      setError('Please fill in all fields')
-      setLoading(false)
-      return
-    }
-
+    setError('')
     try {
-      const response = await axios.post('/api/auth/login', {
-        email,
-        password,
-      })
-
-      if (response.data.user.role !== 'admin') {
-        setError('You do not have admin access')
-        return
-      }
-
-      // Store token if remember me is checked
-      if (rememberMe && response.data.token) {
-        localStorage.setItem('adminToken', response.data.token)
-      }
-
-      // Redirect to dashboard
+      await axios.post('/api/auth/login', { email, password })
       router.push('/admin/dashboard')
+      router.refresh()
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid email or password')
+      setError(err.response?.data?.error || 'Invalid credentials. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Side - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
-        <div className="w-full max-w-md">
-          {/* Logo and Brand - Increased bottom margin */}
-          <div className="text-center mb-16">
-            <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl mb-8 shadow-lg">
-              <Sprout className="w-12 h-12 text-white" />
-            </div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-3">
-              Crop Diagnostic
-            </h1>
-            <p className="text-gray-500 text-lg">Admin Dashboard Login</p>
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: '#040D09',
+      display: 'flex',
+      position: 'relative',
+      overflow: 'hidden',
+      fontFamily: "'DM Sans', sans-serif",
+    }}>
+      {/* Dot grid overlay */}
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 0,
+        backgroundImage: 'radial-gradient(circle, rgba(74,222,128,0.06) 1px, transparent 1px)',
+        backgroundSize: '28px 28px',
+        pointerEvents: 'none',
+      }} />
+
+      {/* Left decorative panel */}
+      <div style={{
+        width: '50%',
+        background: 'linear-gradient(135deg, #040D09 0%, #061409 50%, #060F0A 100%)',
+        borderRight: '1px solid #1A2E1E',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        padding: '60px',
+        position: 'relative',
+        overflow: 'hidden',
+        zIndex: 1,
+      }}>
+        {/* Glow blob */}
+        <div style={{
+          position: 'absolute', top: '20%', left: '10%',
+          width: '400px', height: '400px', borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(74,222,128,0.12) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative', zIndex: 1 }}>
+          <div style={{
+            width: '40px', height: '40px', borderRadius: '10px',
+            backgroundColor: 'rgba(74,222,128,0.1)',
+            border: '1px solid rgba(74,222,128,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M17 8C8 10 5.9 16.17 3.82 19.34C3.27 20.22 4.41 21.17 5.14 20.42C5.14 20.42 8.35 17 12 17C15.65 17 18 15 18 12C18 10 17 8 17 8Z" fill="#4ADE80"/>
+              <path d="M21 3C12 3 8 7 8 12" stroke="#4ADE80" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
           </div>
+          <span style={{ fontSize: '15px', fontWeight: 700, color: '#F0FDF4', letterSpacing: '0.02em' }}>SmartCrop</span>
+        </div>
 
-          {/* Welcome Message - Increased spacing */}
-          <div className="mb-12 text-center">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-3">
-              Welcome back!
-            </h2>
-            <p className="text-gray-500">
-              Please enter your credentials to access the admin panel
-            </p>
-          </div>
-
-          {/* Error Alert - Better spacing */}
-          {error && (
-            <div className="mb-10 p-6 bg-red-50 border border-red-200 rounded-xl flex items-start gap-4">
-              <AlertCircle className="w-6 h-6 text-red-500 flex-shrink-0" />
-              <div>
-                <p className="text-base font-medium text-red-800 mb-1">Login Failed</p>
-                <p className="text-red-600">{error}</p>
-              </div>
-            </div>
-          )}
-
-          {/* Login Form - Increased spacing between fields */}
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Email Field - Fixed icon positioning with more left spacing */}
-            <div>
-              <label className="block text-base font-medium text-gray-700 mb-3">
-                Email Address
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
-
-                </div>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-14 pr-5 py-5 border-2 border-gray-200 rounded-xl text-lg
-                           focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100
-                           disabled:bg-gray-50 disabled:text-gray-500 transition-all"
-                  placeholder="admin@example.com"
-                  disabled={loading}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Password Field - Fixed icon positioning with more left spacing */}
-            <div>
-              <label className="block text-base font-medium text-gray-700 mb-3">
-                Password
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
-                </div>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-14 pr-14 py-5 border-2 border-gray-200 rounded-xl text-lg
-                           focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100
-                           disabled:bg-gray-50 disabled:text-gray-500 transition-all"
-                  placeholder="••••••••"
-                  disabled={loading}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-5 flex items-center text-gray-400 hover:text-gray-600 transition"
-                >
-                  {showPassword ? <EyeOff className="w-6 h-6" /> : <Eye className="w-6 h-6" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Remember Me & Forgot Password - Increased vertical spacing */}
-            <div className="flex items-center justify-between pt-4">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-5 h-5 border-2 border-gray-300 rounded text-green-600 focus:ring-green-500"
-                />
-                <span className="text-base text-gray-600">Remember me for 30 days</span>
-              </label>
-              <button
-                type="button"
-                className="text-base text-green-600 hover:text-green-700 font-medium transition"
-              >
-                Forgot password?
-              </button>
-            </div>
-
-            {/* Submit Button - Increased height and better spacing */}
-            <div className="pt-6">
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-6 px-6 rounded-xl 
-                         text-lg font-semibold
-                         hover:from-green-700 hover:to-green-800 
-                         disabled:opacity-50 disabled:cursor-not-allowed
-                         focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-offset-2
-                         transition-all duration-200 transform hover:scale-[1.01] active:scale-[0.99]
-                         shadow-lg hover:shadow-xl"
-              >
-                {loading ? (
-                  <div className="flex items-center justify-center gap-3">
-                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Logging in...</span>
-                  </div>
-                ) : (
-                  'Login to Dashboard'
-                )}
-              </button>
-              <br/>
-            </div>
-          </form>
-
-          {/* Demo Credentials Card - Improved spacing and height */}
-          <div className="mt-12 p-8 bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-xl border-2 border-gray-200">
-            <p className="text-base font-medium text-gray-700 mb-5 flex items-center gap-2">
-              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-              Demo Credentials
-            </p>
-            <div className="space-y-4">
-              <div className="flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-200">
-                <span className="text-gray-500 min-w-[70px] text-base">Email:</span>
-                <code className="flex-1 text-gray-800 font-mono text-base">
-                  admin@example.com
-                </code>
-                <button
-                  onClick={() => setEmail('admin@example.com')}
-                  className="text-sm bg-green-100 text-green-700 hover:bg-green-200 px-4 py-2 rounded-lg font-medium transition"
-                >
-                  Fill
-                </button>
-              </div>
-              <div className="flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-200">
-                <span className="text-gray-500 min-w-[70px] text-base">Password:</span>
-                <code className="flex-1 text-gray-800 font-mono text-base">
-                  password123
-                </code>
-                <button
-                  onClick={() => setPassword('password123')}
-                  className="text-sm bg-green-100 text-green-700 hover:bg-green-200 px-4 py-2 rounded-lg font-medium transition"
-                >
-                  Fill
-                </button>
-              </div>
-            </div>
-          </div>
-
-                <br/>
-
-          <p className="mt-12 text-center text-sm text-gray-400">
-            © {new Date().getFullYear()} Crop Diagnostic. All rights reserved.
+        {/* Hero Text */}
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <p style={{ fontSize: '11px', letterSpacing: '0.3em', fontWeight: 700, color: '#4ADE80', marginBottom: '20px', textTransform: 'uppercase' }}>
+            AI-Powered Diagnostics
           </p>
+          <h1 style={{ fontSize: '48px', fontWeight: 900, color: '#F0FDF4', lineHeight: 1.05, letterSpacing: '-0.03em', marginBottom: '20px' }}>
+            Field-grade<br />
+            <span style={{ color: '#4ADE80' }}>intelligence</span><br />
+            for your crops.
+          </h1>
+          <p style={{ fontSize: '15px', color: '#4B6358', lineHeight: 1.7, maxWidth: '380px' }}>
+            Monitor 38 disease classes across tomato, apple, corn, potato and grape — powered by MobileNet V2 and enriched with real weather data.
+          </p>
+        </div>
+
+        {/* Stats row */}
+        <div style={{ display: 'flex', gap: '40px', position: 'relative', zIndex: 1 }}>
+          {[
+            { value: '38', label: 'Disease Classes' },
+            { value: '99%', label: 'Model Accuracy' },
+            { value: '24/7', label: 'Live Monitoring' },
+          ].map(({ value, label }) => (
+            <div key={label}>
+              <div style={{ fontSize: '28px', fontWeight: 900, color: '#F0FDF4', letterSpacing: '-0.03em', fontFamily: "'DM Mono', monospace" }}>{value}</div>
+              <div style={{ fontSize: '11px', color: '#4B6358', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em', marginTop: '4px' }}>{label}</div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Right Side - Hero Image / Features */}
-      <div className="hidden lg:block lg:w-1/2 bg-gradient-to-br from-green-600 to-green-800 relative overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 -left-4 w-72 h-72 bg-white rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
-          <div className="absolute top-0 -right-4 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
-          <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
-        </div>
-
-        {/* Content - Increased spacing */}
-        <div className="relative h-full flex flex-col items-center justify-center text-white p-12">
-          <div className="max-w-md text-center">
-            <div className="mb-12">
-              <Sprout className="w-32 h-32 mx-auto text-white/90" />
-            </div>
-            <h2 className="text-4xl font-bold mb-8 leading-tight">
-              Crop Diagnostic Admin Panel
+      {/* Right — Form panel */}
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '60px',
+        position: 'relative',
+        zIndex: 1,
+      }}>
+        <div style={{ width: '100%', maxWidth: '400px' }}>
+          <div style={{ marginBottom: '40px' }}>
+            <h2 style={{ fontSize: '26px', fontWeight: 800, color: '#F0FDF4', letterSpacing: '-0.02em', marginBottom: '8px' }}>
+              Welcome back
             </h2>
-            <p className="text-xl text-white/90 mb-12 leading-relaxed">
-              Monitor and manage your agricultural diagnostic system with our comprehensive admin dashboard
-            </p>
-            
-            <div className="space-y-6 text-left bg-white/10 p-8 rounded-2xl backdrop-blur-sm">
-              {[
-                'Real-time crop health monitoring',
-                'Manage farmer profiles and records',
-                'Generate detailed diagnostic reports',
-                'Track system performance metrics',
-                'Multi-language support coming soon'
-              ].map((feature, index) => (
-                <div key={index} className="flex items-center gap-4">
-                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <span className="text-white/90 text-lg">{feature}</span>
-                </div>
-              ))}
+            <p style={{ fontSize: '14px', color: '#4B6358' }}>Sign in to access the admin platform.</p>
+          </div>
+
+          {error && (
+            <div style={{
+              padding: '12px 16px', borderRadius: '8px', marginBottom: '24px',
+              backgroundColor: 'rgba(248,113,113,0.07)',
+              border: '1px solid rgba(248,113,113,0.2)',
+              color: '#F87171', fontSize: '13px', fontWeight: 500,
+            }}>
+              {error}
             </div>
+          )}
+
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#4B6358', marginBottom: '8px' }}>
+                Email Address
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                style={{
+                  width: '100%', padding: '11px 14px',
+                  backgroundColor: '#0A1510', borderRadius: '8px',
+                  border: '1px solid #1A2E1E',
+                  color: '#F0FDF4', fontSize: '14px',
+                  outline: 'none', transition: 'border-color 0.15s',
+                  fontFamily: 'inherit',
+                }}
+                onFocus={e => e.target.style.borderColor = 'rgba(74,222,128,0.4)'}
+                onBlur={e => e.target.style.borderColor = '#1A2E1E'}
+                placeholder="admin@smartcrop.dev"
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#4B6358', marginBottom: '8px' }}>
+                Password
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  style={{
+                    width: '100%', padding: '11px 44px 11px 14px',
+                    backgroundColor: '#0A1510', borderRadius: '8px',
+                    border: '1px solid #1A2E1E',
+                    color: '#F0FDF4', fontSize: '14px',
+                    outline: 'none', transition: 'border-color 0.15s',
+                    fontFamily: 'inherit',
+                  }}
+                  onFocus={e => e.target.style.borderColor = 'rgba(74,222,128,0.4)'}
+                  onBlur={e => e.target.style.borderColor = '#1A2E1E'}
+                  placeholder="••••••••"
+                />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} style={{
+                  position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', color: '#4B6358', cursor: 'pointer', fontSize: '12px',
+                  fontFamily: 'inherit', fontWeight: 600, letterSpacing: '0.05em',
+                }}>
+                  {showPassword ? 'HIDE' : 'SHOW'}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '-4px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#4B6358' }}>
+                <input type="checkbox" style={{ accentColor: '#4ADE80' }} />
+                Remember me
+              </label>
+              <a href="#" style={{ fontSize: '13px', color: '#4ADE80', textDecoration: 'none', fontWeight: 500 }}>
+                Forgot password?
+              </a>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: '100%', padding: '12px',
+                backgroundColor: loading ? '#166534' : '#4ADE80',
+                color: '#0A1510', borderRadius: '8px',
+                fontSize: '14px', fontWeight: 700, letterSpacing: '0.03em',
+                border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
+                transition: 'all 0.15s', marginTop: '8px',
+                boxShadow: loading ? 'none' : '0 0 20px rgba(74,222,128,0.25)',
+              }}
+              onMouseEnter={e => { if (!loading) { e.currentTarget.style.backgroundColor = '#6EE7B7'; e.currentTarget.style.boxShadow = '0 0 28px rgba(74,222,128,0.4)'; }}}
+              onMouseLeave={e => { if (!loading) { e.currentTarget.style.backgroundColor = '#4ADE80'; e.currentTarget.style.boxShadow = '0 0 20px rgba(74,222,128,0.25)'; }}}
+            >
+              {loading ? 'Authenticating...' : 'Sign In →'}
+            </button>
+          </form>
+
+          <div style={{ marginTop: '40px', paddingTop: '24px', borderTop: '1px solid #1A2E1E', textAlign: 'center' }}>
+            <p style={{ fontSize: '11px', color: '#2D4A38', textTransform: 'uppercase', letterSpacing: '0.25em', fontWeight: 600 }}>
+              Demo Environment · Credentials Pre-filled
+            </p>
           </div>
         </div>
       </div>

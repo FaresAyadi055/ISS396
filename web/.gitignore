@@ -11,7 +11,7 @@ mobile/node_modules
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-
+.env
 # testing
 /coverage
 

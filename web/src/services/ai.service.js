@@ -194,3 +194,48 @@ export const analyzeLeafImage = async (imageBuffer) => {
 export const analyzeLeafImages = async (imageBuffers) => {
   return Promise.all(imageBuffers.map(buf => analyzeLeafImage(buf)));
 };
+/**
+ * Takes scan session data and generates a diagnosis + treatment report using AI.
+ * @param {object} scanData - { plantType, detections: [{ label, score }] }
+ * @returns {{ diagnosis: string, treatment: string }}
+ */
+export const generateReport = async (scanData) => {
+  const { plantType, detections } = scanData
+
+  const diseaseSummary = detections
+    .map(d => `- ${d.label.replace(/___/g, ' → ')} (confidence: ${(d.score * 100).toFixed(1)}%)`)
+    .join('\n')
+
+  const prompt = `You are an expert agricultural plant pathologist.
+A farmer scanned their ${plantType} crop and the AI detected the following:
+
+${diseaseSummary}
+
+Based on these detections, provide:
+1. A clear DIAGNOSIS (2-3 sentences explaining what diseases are present and their severity)
+2. A TREATMENT plan (3-5 practical steps the farmer should take)
+
+Respond in this exact JSON format:
+{
+  "diagnosis": "...",
+  "treatment": "..."
+}`
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }]
+      })
+    }
+  )
+
+  if (!response.ok) throw new Error(`Gemini API error: ${response.status}`)
+
+  const result = await response.json()
+  const text = result.candidates[0].content.parts[0].text
+  const clean = text.replace(/```json|```/g, '').trim()
+  return JSON.parse(clean)
+}
