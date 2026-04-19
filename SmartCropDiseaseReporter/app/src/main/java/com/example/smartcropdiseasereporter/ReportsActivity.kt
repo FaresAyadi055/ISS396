@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.smartcropdiseasereporter.data.LoginDataSource
 import com.example.smartcropdiseasereporter.data.LoginRepository
 import com.example.smartcropdiseasereporter.data.api.*
+import com.example.smartcropdiseasereporter.util.CacheManager
 import com.example.smartcropdiseasereporter.util.SettingsManager
 import io.noties.markwon.Markwon
 import io.noties.markwon.image.ImagesPlugin
@@ -38,8 +39,9 @@ class ReportsActivity : AppCompatActivity() {
 
     private lateinit var settingsManager: SettingsManager
     private lateinit var loginRepository: LoginRepository
-    private lateinit var reportApiService: ReportApiService
-    private lateinit var scanApiService: ScanApiService
+    private lateinit var cacheManager: CacheManager
+    private var reportApiService: ReportApiService? = null
+    private var scanApiService: ScanApiService? = null
     
     private var allSessions: List<ScanSessionData> = emptyList()
     private var currentSessionId: String? = null
@@ -52,6 +54,7 @@ class ReportsActivity : AppCompatActivity() {
 
         settingsManager = SettingsManager(this)
         loginRepository = LoginRepository.getInstance(LoginDataSource(settingsManager))
+        cacheManager = CacheManager(this)
         
         markwon = Markwon.builder(this)
             .usePlugin(ImagesPlugin.create())
@@ -100,23 +103,40 @@ class ReportsActivity : AppCompatActivity() {
     }
 
     private fun loadSessions() {
+        val service = scanApiService
+        if (service == null) {
+            loadSessionsFromCache()
+            return
+        }
+
         progressBar.visibility = View.VISIBLE
-        scanApiService.getSessions().enqueue(object : Callback<ScanListResponse> {
+        service.getSessions().enqueue(object : Callback<ScanListResponse> {
             override fun onResponse(call: Call<ScanListResponse>, response: Response<ScanListResponse>) {
                 if (response.isSuccessful && response.body()?.success == true) {
-                    allSessions = response.body()?.data ?: emptyList()
+                    val data = response.body()!!
+                    allSessions = data.data ?: emptyList()
+                    cacheManager.saveScans(data)
                     setupSpinner()
                 } else {
-                    progressBar.visibility = View.GONE
-                    loadReports(null)
+                    loadSessionsFromCache()
                 }
             }
 
             override fun onFailure(call: Call<ScanListResponse>, t: Throwable) {
-                progressBar.visibility = View.GONE
-                loadReports(null)
+                loadSessionsFromCache()
             }
         })
+    }
+
+    private fun loadSessionsFromCache() {
+        val cached = cacheManager.getScans()
+        if (cached != null) {
+            allSessions = cached.data ?: emptyList()
+            setupSpinner()
+        } else {
+            progressBar.visibility = View.GONE
+            loadReports(null)
+        }
     }
 
     private fun setupSpinner() {
@@ -146,14 +166,22 @@ class ReportsActivity : AppCompatActivity() {
     }
 
     private fun loadReports(sessionId: String?) {
+        val service = reportApiService
+        if (service == null) {
+            loadReportsFromCache()
+            return
+        }
+
         progressBar.visibility = View.VISIBLE
         tvNoReports.visibility = View.GONE
         
-        reportApiService.getReports(sessionId = sessionId).enqueue(object : Callback<GetReportsResponse> {
+        service.getReports(sessionId = sessionId).enqueue(object : Callback<GetReportsResponse> {
             override fun onResponse(call: Call<GetReportsResponse>, response: Response<GetReportsResponse>) {
                 progressBar.visibility = View.GONE
                 if (response.isSuccessful && response.body()?.success == true) {
-                    val reports = response.body()?.reports ?: emptyList()
+                    val data = response.body()!!
+                    val reports = data.reports ?: emptyList()
+                    cacheManager.saveReports(data)
                     if (reports.isEmpty()) {
                         tvNoReports.visibility = View.VISIBLE
                         rvReports.adapter = null
@@ -161,15 +189,30 @@ class ReportsActivity : AppCompatActivity() {
                         rvReports.adapter = ReportsAdapter(reports)
                     }
                 } else {
-                    Toast.makeText(this@ReportsActivity, "Failed to load reports", Toast.LENGTH_SHORT).show()
+                    loadReportsFromCache()
                 }
             }
 
             override fun onFailure(call: Call<GetReportsResponse>, t: Throwable) {
                 progressBar.visibility = View.GONE
-                Toast.makeText(this@ReportsActivity, "Error: ${t.message}", Toast.LENGTH_SHORT).show()
+                loadReportsFromCache()
             }
         })
+    }
+
+    private fun loadReportsFromCache() {
+        val cached = cacheManager.getReports()
+        if (cached != null) {
+            val reports = cached.reports ?: emptyList()
+            if (reports.isEmpty()) {
+                tvNoReports.visibility = View.VISIBLE
+            } else {
+                rvReports.adapter = ReportsAdapter(reports)
+            }
+            Toast.makeText(this, "Showing cached reports (Offline)", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "No reports available offline", Toast.LENGTH_SHORT).show()
+        }
     }
 
     inner class ReportsAdapter(private val reports: List<Report>) : RecyclerView.Adapter<ReportsAdapter.ViewHolder>() {
@@ -183,7 +226,6 @@ class ReportsActivity : AppCompatActivity() {
             val report = reports[position]
             val header = report.reportData?.header
             
-            // Strictly extract Crop and Result from the header
             val crop = header?.crop ?: "Unknown Crop"
             val result = header?.result ?: "No Result"
             
