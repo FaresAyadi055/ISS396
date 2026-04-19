@@ -61,6 +61,12 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
         settingsManager = SettingsManager(this)
         loginRepository = LoginRepository.getInstance(LoginDataSource(settingsManager))
 
+        if (loginRepository.user == null) {
+            Toast.makeText(this, "Session expired, please login again", Toast.LENGTH_SHORT).show()
+            finish()
+            return
+        }
+
         val cameraView = findViewById<SurfaceView>(R.id.cameraview)
         cameraView.holder.addCallback(this)
 
@@ -82,19 +88,11 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
             != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), 100)
         }
-        
-        if (loginRepository.user == null) {
-            Toast.makeText(this, "Offline Mode: Analysis unavailable", Toast.LENGTH_LONG).show()
-        }
     }
 
     private fun setupButtons() {
         btnAnalyze.setOnClickListener {
-            if (loginRepository.user == null) {
-                Toast.makeText(this, "Please login to analyze and upload scans", Toast.LENGTH_SHORT).show()
-            } else {
-                analyzeFrame()
-            }
+            analyzeFrame()
         }
 
         btnBack.setOnClickListener {
@@ -249,7 +247,7 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
                         runOnUiThread {
                             loadingProgress.visibility = View.GONE
                             controlPanel.visibility = View.VISIBLE
-                            Toast.makeText(this@CameraActivity, "Upload Failed: No connection", Toast.LENGTH_LONG).show()
+                            Toast.makeText(this@CameraActivity, "Upload Failed", Toast.LENGTH_LONG).show()
                         }
                     }
 

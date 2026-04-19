@@ -10,10 +10,10 @@ import {
   Settings,
   LogOut,
   ChevronLeft,
-  ChevronRight,
   Sprout,
   BarChart3,
-  Bell
+  Bell,
+  Image as ImageIcon
 } from 'lucide-react'
 
 export default function Sidebar({ collapsed, onCollapse }) {
@@ -24,7 +24,6 @@ export default function Sidebar({ collapsed, onCollapse }) {
   const handleLogout = async () => {
     setLoggingOut(true)
     try {
-      // Add your logout logic here
       router.push('/login')
     } catch (error) {
       console.error('Logout error:', error)
@@ -34,13 +33,15 @@ export default function Sidebar({ collapsed, onCollapse }) {
   }
 
   const isActive = (path) => pathname === path
+  const isCollapsed = collapsed === true
 
   const menuItems = [
     { path: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/admin/farmers', icon: Users, label: 'Farmers' },
     { path: '/admin/reports', icon: FileText, label: 'Reports' },
-    { path: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
-    { path: '/admin/notifications', icon: Bell, label: 'Notifications', badge: 3 },
+    { path: '/admin/scans', icon: ImageIcon, label: 'Scans' },
+    //{ path: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
+    //{ path: '/admin/notifications', icon: Bell, label: 'Notifications', badge: 3 },
   ]
 
   const bottomMenuItems = [
@@ -49,34 +50,28 @@ export default function Sidebar({ collapsed, onCollapse }) {
 
   return (
     <aside className={`bg-gradient-to-b from-gray-900 to-gray-800 text-white h-screen sticky top-0 transition-all duration-300 flex flex-col ${
-      collapsed ? 'w-20' : 'w-64'
+      isCollapsed ? 'w-0 overflow-hidden' : 'w-64'
     }`}>
       {/* Logo Section */}
-      <div className={`p-6 border-b border-gray-700 flex items-center ${collapsed ? 'justify-center' : 'justify-between'}`}>
-        {!collapsed ? (
-          <>
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
-                <Sprout className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="font-bold text-lg">CropDiagnostic</h1>
-                <p className="text-xs text-gray-400">Admin Dashboard</p>
-              </div>
+      <div className="p-4 border-b border-gray-700 flex items-center justify-between overflow-hidden">
+        {!isCollapsed && (
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+              <Sprout className="w-5 h-5 text-white" />
             </div>
-            <button
-              onClick={onCollapse}
-              className="p-1 hover:bg-gray-700 rounded-lg transition"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-          </>
-        ) : (
+            <div>
+              <h1 className="font-bold text-lg">CropDiagnostic</h1>
+              <p className="text-xs text-gray-400">Admin Dashboard</p>
+            </div>
+          </div>
+        )}
+        {/* ChevronLeft - visible when expanded */}
+        {!isCollapsed && (
           <button
             onClick={onCollapse}
             className="p-1 hover:bg-gray-700 rounded-lg transition"
           >
-            <ChevronRight className="w-4 h-4" />
+            <ChevronLeft className="w-4 h-4" />
           </button>
         )}
       </div>
@@ -92,14 +87,14 @@ export default function Sidebar({ collapsed, onCollapse }) {
               <Link
                 key={item.path}
                 href={item.path}
-                className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-lg transition group relative ${
+                className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-lg transition group relative ${
                   active
                     ? 'bg-gray-700 text-white'
                     : 'text-gray-300 hover:bg-gray-700/50'
                 }`}
               >
                 <Icon className={`w-5 h-5 ${active ? 'text-green-400' : ''}`} />
-                {!collapsed && (
+                {!isCollapsed && (
                   <>
                     <span className="flex-1 text-sm">{item.label}</span>
                     {item.badge && (
@@ -109,7 +104,7 @@ export default function Sidebar({ collapsed, onCollapse }) {
                     )}
                   </>
                 )}
-                {collapsed && item.badge && (
+                {isCollapsed && item.badge && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
                     {item.badge}
                   </span>
@@ -120,7 +115,7 @@ export default function Sidebar({ collapsed, onCollapse }) {
         </div>
 
         {/* Bottom Menu Items */}
-        <div className="absolute bottom-4 left-4 right-4">
+        <div className={`absolute bottom-4 ${isCollapsed ? 'left-0 right-0 px-1' : 'left-4 right-4'}`}>
           <div className="space-y-1">
             {bottomMenuItems.map((item) => {
               const Icon = item.icon
@@ -128,10 +123,10 @@ export default function Sidebar({ collapsed, onCollapse }) {
                 <Link
                   key={item.path}
                   href={item.path}
-                  className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-lg transition text-gray-300 hover:bg-gray-700/50`}
+                  className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-lg transition text-gray-300 hover:bg-gray-700/50`}
                 >
                   <Icon className="w-5 h-5" />
-                  {!collapsed && <span className="text-sm">{item.label}</span>}
+                  {!isCollapsed && <span className="text-sm">{item.label}</span>}
                 </Link>
               )
             })}
@@ -140,10 +135,10 @@ export default function Sidebar({ collapsed, onCollapse }) {
             <button
               onClick={handleLogout}
               disabled={loggingOut}
-              className={`w-full flex items-center ${collapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-lg transition text-gray-300 hover:bg-red-600/20 hover:text-red-400 disabled:opacity-50`}
+              className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2 rounded-lg transition text-gray-300 hover:bg-red-600/20 hover:text-red-400 disabled:opacity-50`}
             >
               <LogOut className="w-5 h-5" />
-              {!collapsed && (
+              {!isCollapsed && (
                 <span className="text-sm">{loggingOut ? 'Logging out...' : 'Logout'}</span>
               )}
             </button>

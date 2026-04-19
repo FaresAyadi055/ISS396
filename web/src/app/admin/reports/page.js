@@ -42,7 +42,7 @@ export default function ReportsPage() {
   const [selectedReport, setSelectedReport] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedStatus, setSelectedStatus] = useState('all')
-  const [selectedSeverity, setSelectedSeverity] = useState('all')
+  const [selectedCrop, setSelectedCrop] = useState('all')
   const [dateRange, setDateRange] = useState({ start: '', end: '' })
   const [showFilters, setShowFilters] = useState(false)
   const [showStats, setShowStats] = useState(true)
@@ -57,7 +57,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     filterReports()
-  }, [searchTerm, selectedStatus, selectedSeverity, dateRange, reports])
+  }, [searchTerm, selectedStatus, selectedCrop, dateRange, reports])
 
   const fetchReports = async () => {
     try {
@@ -66,23 +66,8 @@ export default function ReportsPage() {
         `/api/admin/reports?page=${page}&limit=${LIMIT}`
       )
       
-      // Add mock data for demonstration
-      const reportsData = (response.data.reports || []).map((report, index) => ({
-        ...report,
-        severity: ['high', 'medium', 'low'][Math.floor(Math.random() * 3)],
-        status: ['pending', 'in-progress', 'resolved', 'cancelled'][Math.floor(Math.random() * 4)],
-        confidence: Math.floor(Math.random() * 30) + 70,
-        cropType: ['Wheat', 'Corn', 'Soybeans', 'Rice', 'Cotton'][Math.floor(Math.random() * 5)],
-        fieldLocation: `Field ${String.fromCharCode(65 + Math.floor(Math.random() * 5))}-${Math.floor(Math.random() * 10) + 1}`,
-        notes: Math.random() > 0.5 ? 'Follow-up required. Treatment showing positive results.' : null,
-        images: [
-          `https://source.unsplash.com/random/800x600?farm,${index}`,
-          `https://source.unsplash.com/random/800x600?crop,${index + 100}`,
-        ].slice(0, Math.floor(Math.random() * 2) + 1),
-      }))
-      
-      setReports(reportsData)
-      setFilteredReports(reportsData)
+      setReports(response.data.reports || [])
+      setFilteredReports(response.data.reports || [])
       setTotalPages(response.data.pagination?.pages || 1)
       setTotalReports(response.data.pagination?.total || 0)
     } catch (error) {
@@ -99,27 +84,26 @@ export default function ReportsPage() {
   const filterReports = () => {
     let filtered = [...reports]
 
-    // Apply search
     if (searchTerm) {
+      const term = searchTerm.toLowerCase()
       filtered = filtered.filter(report => 
-        report.farmerId?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        report.diagnosis?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        report.treatment?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        report.cropType?.toLowerCase().includes(searchTerm.toLowerCase())
+        report.farmerId?.name?.toLowerCase().includes(term) ||
+        report.farmerId?.email?.toLowerCase().includes(term) ||
+        report.reportData?.header?.crop?.toLowerCase().includes(term) ||
+        report.reportData?.header?.result?.toLowerCase().includes(term)
       )
     }
 
-    // Apply status filter
     if (selectedStatus !== 'all') {
       filtered = filtered.filter(report => report.status === selectedStatus)
     }
 
-    // Apply severity filter
-    if (selectedSeverity !== 'all') {
-      filtered = filtered.filter(report => report.severity === selectedSeverity)
+    if (selectedCrop !== 'all') {
+      filtered = filtered.filter(report => 
+        report.reportData?.header?.crop?.toLowerCase() === selectedCrop
+      )
     }
 
-    // Apply date range filter
     if (dateRange.start && dateRange.end) {
       filtered = filtered.filter(report => {
         const reportDate = new Date(report.createdAt)
@@ -160,21 +144,17 @@ export default function ReportsPage() {
     try {
       await new Promise(resolve => setTimeout(resolve, 1500))
       
-      const headers = ['Farmer', 'Email', 'Diagnosis', 'Treatment', 'Severity', 'Status', 'Crop Type', 'Location', 'Date', 'Confidence']
+      const headers = ['Farmer', 'Email', 'Crop', 'Result', 'Status', 'Date']
       const csvContent = [
         headers.join(','),
         ...filteredReports.map(r => 
           [
             r.farmerId?.name || 'Unknown',
             r.farmerId?.email || 'N/A',
-            `"${r.diagnosis || 'N/A'}"`,
-            `"${r.treatment || 'N/A'}"`,
-            r.severity || 'N/A',
+            r.reportData?.header?.crop || 'N/A',
+            `"${r.reportData?.header?.result || 'N/A'}"`,
             r.status || 'N/A',
-            r.cropType || 'N/A',
-            r.fieldLocation || 'N/A',
-            new Date(r.createdAt).toLocaleDateString(),
-            r.confidence ? `${r.confidence}%` : 'N/A'
+            new Date(r.createdAt).toLocaleDateString()
           ].join(',')
         )
       ].join('\n')
@@ -203,38 +183,27 @@ export default function ReportsPage() {
 
   const getStatusBadge = (status) => {
     const styles = {
-      resolved: 'bg-green-100 text-green-700 border-green-200',
+      completed: 'bg-green-100 text-green-700 border-green-200',
       pending: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-      'in-progress': 'bg-blue-100 text-blue-700 border-blue-200',
-      cancelled: 'bg-gray-100 text-gray-700 border-gray-200'
+      processing: 'bg-blue-100 text-blue-700 border-blue-200',
+      failed: 'bg-red-100 text-red-700 border-red-200'
     }
     const icons = {
-      resolved: CheckCircle,
+      completed: CheckCircle,
       pending: Clock,
-      'in-progress': RefreshCw,
-      cancelled: XCircle
+      processing: RefreshCw,
+      failed: XCircle
     }
     const Icon = icons[status] || Clock
     return { className: styles[status] || styles.pending, Icon }
   }
 
-  const getSeverityBadge = (severity) => {
-    const styles = {
-      high: 'bg-red-100 text-red-700 border-red-200',
-      medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-      low: 'bg-green-100 text-green-700 border-green-200'
-    }
-    return styles[severity] || styles.low
-  }
-
-  // Calculate statistics
   const stats = {
     total: filteredReports.length,
-    resolved: filteredReports.filter(r => r.status === 'resolved').length,
+    completed: filteredReports.filter(r => r.status === 'completed').length,
     pending: filteredReports.filter(r => r.status === 'pending').length,
-    inProgress: filteredReports.filter(r => r.status === 'in-progress').length,
-    highSeverity: filteredReports.filter(r => r.severity === 'high').length,
-    avgConfidence: Math.round(filteredReports.reduce((acc, r) => acc + (r.confidence || 0), 0) / (filteredReports.length || 1)),
+    processing: filteredReports.filter(r => r.status === 'processing').length,
+    failed: filteredReports.filter(r => r.status === 'failed').length,
   }
 
   const columns = [
@@ -254,40 +223,22 @@ export default function ReportsPage() {
       ),
     },
     {
-      key: 'diagnosis',
-      label: 'Diagnosis',
-      render: (value, row) => (
-        <div>
-          <div className="font-medium text-gray-900 mb-1">{value || 'N/A'}</div>
-          <div className="flex items-center gap-2">
-            <span className={`px-2 py-0.5 text-xs rounded-full border ${getSeverityBadge(row.severity)}`}>
-              {row.severity || 'N/A'}
-            </span>
-            {row.confidence && (
-              <span className="text-xs text-gray-500">{row.confidence}% confidence</span>
-            )}
-          </div>
+      key: 'reportData',
+      label: 'Crop',
+      render: (value) => (
+        <div className="text-sm text-gray-900">
+          {value?.header?.crop || 'N/A'}
         </div>
       ),
     },
     {
-      key: 'treatment',
-      label: 'Treatment',
+      key: 'reportData',
+      label: 'Primary Finding',
       render: (value) => (
         <div className="max-w-xs">
           <p className="text-sm text-gray-700 line-clamp-2">
-            {value || 'No treatment specified'}
+            {value?.header?.result || 'N/A'}
           </p>
-        </div>
-      ),
-    },
-    {
-      key: 'cropType',
-      label: 'Crop & Location',
-      render: (value, row) => (
-        <div>
-          <div className="text-sm font-medium text-gray-900">{value || 'N/A'}</div>
-          <div className="text-xs text-gray-500">{row.fieldLocation || 'N/A'}</div>
         </div>
       ),
     },
@@ -310,9 +261,6 @@ export default function ReportsPage() {
       render: (value) => (
         <div className="text-sm text-gray-600">
           {new Date(value).toLocaleDateString()}
-          <div className="text-xs text-gray-400">
-            {new Date(value).toLocaleTimeString()}
-          </div>
         </div>
       ),
     },
@@ -373,8 +321,8 @@ export default function ReportsPage() {
                     <CheckCircle className="w-6 h-6 text-green-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Resolved</p>
-                    <p className="text-2xl font-bold text-gray-800">{stats.resolved}</p>
+                    <p className="text-sm text-gray-500 mb-1">Completed</p>
+                    <p className="text-2xl font-bold text-gray-800">{stats.completed}</p>
                   </div>
                 </div>
               </div>
@@ -397,8 +345,8 @@ export default function ReportsPage() {
                     <AlertCircle className="w-6 h-6 text-purple-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">High Severity</p>
-                    <p className="text-2xl font-bold text-gray-800">{stats.highSeverity}</p>
+                    <p className="text-sm text-gray-500 mb-1">Failed</p>
+                    <p className="text-2xl font-bold text-gray-800">{stats.failed}</p>
                   </div>
                 </div>
               </div>
@@ -433,7 +381,7 @@ export default function ReportsPage() {
               <div className="relative flex-1 lg:w-96">
                 <input
                   type="text"
-                  placeholder="Search by farmer, diagnosis, treatment..."
+                  placeholder="Search by farmer, crop, or result..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-gray-400"
@@ -442,7 +390,7 @@ export default function ReportsPage() {
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className={`p-3 border rounded-xl transition ${
-                  showFilters || selectedStatus !== 'all' || selectedSeverity !== 'all' || dateRange.start
+                  showFilters || selectedStatus !== 'all' || selectedCrop !== 'all' || dateRange.start
                     ? 'bg-gray-900 text-white border-gray-900'
                     : 'border-gray-200 hover:bg-gray-50'
                 }`}
@@ -474,25 +422,27 @@ export default function ReportsPage() {
                 >
                   <option value="all">All Status</option>
                   <option value="pending">Pending</option>
-                  <option value="in-progress">In Progress</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="cancelled">Cancelled</option>
+                  <option value="processing">Processing</option>
+                  <option value="completed">Completed</option>
+                  <option value="failed">Failed</option>
                 </select>
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-2">
-                  Severity
+                  Crop
                 </label>
                 <select
-                  value={selectedSeverity}
-                  onChange={(e) => setSelectedSeverity(e.target.value)}
+                  value={selectedCrop}
+                  onChange={(e) => setSelectedCrop(e.target.value)}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400"
                 >
-                  <option value="all">All Severities</option>
-                  <option value="high">High</option>
-                  <option value="medium">Medium</option>
-                  <option value="low">Low</option>
+                  <option value="all">All Crops</option>
+                  <option value="wheat">Wheat</option>
+                  <option value="corn">Corn</option>
+                  <option value="soybeans">Soybeans</option>
+                  <option value="rice">Rice</option>
+                  <option value="cotton">Cotton</option>
                 </select>
               </div>
 
@@ -525,7 +475,7 @@ export default function ReportsPage() {
                   onClick={() => {
                     setSearchTerm('')
                     setSelectedStatus('all')
-                    setSelectedSeverity('all')
+                    setSelectedCrop('all')
                     setDateRange({ start: '', end: '' })
                   }}
                   className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition"
@@ -665,55 +615,19 @@ export default function ReportsPage() {
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">Crop Type</p>
+                      <p className="text-xs text-gray-500 mb-1">Crop</p>
                       <p className="text-base text-gray-800">
-                        {selectedReport.cropType || 'N/A'}
+                        {selectedReport.reportData?.header?.crop || 'N/A'}
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">Field Location</p>
+                      <p className="text-xs text-gray-500 mb-1">Scan ID</p>
                       <p className="text-base text-gray-800">
-                        {selectedReport.fieldLocation || 'N/A'}
+                        {selectedReport.reportData?.header?.scanId || 'N/A'}
                       </p>
                     </div>
                   </div>
                 </div>
-
-                {/* Images */}
-                {selectedReport.images && selectedReport.images.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
-                      <ImageIcon className="w-4 h-4" />
-                      Uploaded Images
-                    </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {selectedReport.images.map((img, idx) => (
-                        <div
-                          key={idx}
-                          className="relative group cursor-pointer"
-                          onClick={() => setFullscreenImage(img)}
-                        >
-                          <div className="aspect-square rounded-lg overflow-hidden border border-gray-200">
-                            <img
-                              src={img}
-                              alt={`Report image ${idx + 1}`}
-                              className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                            />
-                          </div>
-                          <button
-                            className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-lg opacity-0 group-hover:opacity-100 transition"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setFullscreenImage(img)
-                            }}
-                          >
-                            <Maximize2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 {/* Diagnosis Details */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -723,15 +637,17 @@ export default function ReportsPage() {
                     
                     <div className="flex items-center gap-4">
                       <div>
-                        <p className="text-xs text-gray-500 mb-1">Severity</p>
-                        <span className={`inline-block px-3 py-1.5 rounded-full text-xs font-medium border ${getSeverityBadge(selectedReport.severity)}`}>
-                          {selectedReport.severity || 'N/A'}
-                        </span>
+                        <p className="text-xs text-gray-500 mb-1">Primary Finding</p>
+                        <p className="text-sm font-medium text-gray-800">
+                          {selectedReport.reportData?.header?.result || 'N/A'}
+                        </p>
                       </div>
-                      {selectedReport.confidence && (
+                      {selectedReport.reportData?.header?.leavesAnalyzed && (
                         <div>
-                          <p className="text-xs text-gray-500 mb-1">Confidence</p>
-                          <p className="text-sm font-medium text-gray-800">{selectedReport.confidence}%</p>
+                          <p className="text-xs text-gray-500 mb-1">Leaves Analyzed</p>
+                          <p className="text-sm font-medium text-gray-800">
+                            {selectedReport.reportData.header.leavesAnalyzed}
+                          </p>
                         </div>
                       )}
                     </div>
