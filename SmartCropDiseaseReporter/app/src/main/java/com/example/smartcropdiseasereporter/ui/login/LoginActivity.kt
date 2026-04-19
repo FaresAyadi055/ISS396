@@ -40,6 +40,7 @@ class LoginActivity : AppCompatActivity() {
         val loading = binding.loading
         val demoCredentials = binding.demoCredentials
         val settingsButton = binding.settingsButton
+        val continueOffline = binding.continueOffline
 
         loginViewModel = ViewModelProvider(this, LoginViewModelFactory(this))
             .get(LoginViewModel::class.java)
@@ -117,6 +118,11 @@ class LoginActivity : AppCompatActivity() {
 
         settingsButton?.setOnClickListener {
             showSettingsDialog()
+        }
+
+        continueOffline?.setOnClickListener {
+            startActivity(Intent(this, MainMenuActivity::class.java))
+            finish()
         }
     }
 
