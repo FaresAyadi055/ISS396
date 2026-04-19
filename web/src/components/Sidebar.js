@@ -12,7 +12,8 @@ import {
   ChevronLeft,
   Sprout,
   BarChart3,
-  Bell
+  Bell,
+  Image as ImageIcon
 } from 'lucide-react'
 
 export default function Sidebar({ collapsed, onCollapse }) {
@@ -38,8 +39,9 @@ export default function Sidebar({ collapsed, onCollapse }) {
     { path: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/admin/farmers', icon: Users, label: 'Farmers' },
     { path: '/admin/reports', icon: FileText, label: 'Reports' },
-    { path: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
-    { path: '/admin/notifications', icon: Bell, label: 'Notifications', badge: 3 },
+    { path: '/admin/scans', icon: ImageIcon, label: 'Scans' },
+    //{ path: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
+    //{ path: '/admin/notifications', icon: Bell, label: 'Notifications', badge: 3 },
   ]
 
   const bottomMenuItems = [

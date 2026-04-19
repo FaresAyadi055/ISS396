@@ -38,8 +38,8 @@ export default function LoginPage() {
         return
       }
 
-      // Store token if remember me is checked
-      if (rememberMe && response.data.token) {
+      // Store token for API calls
+      if (response.data.token) {
         localStorage.setItem('adminToken', response.data.token)
       }
 
