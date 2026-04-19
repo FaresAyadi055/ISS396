@@ -201,18 +201,11 @@ export const analyzeLeafImage = async (imageBuffer, options = {}) => {
   
   // Reorder to alphabetical
   const alphabeticalClassifications = reorderToAlphabetical(rawClassifications, alphabeticalLabels);
-
-  // Find the classification with the highest score
-  const bestResult = alphabeticalClassifications.reduce((best, current) =>
-    current.score > best.score ? current : best,
-    { label: '', score: 0 }
-  );
-
+  
   // Return both the mask ID and the classification results
   return {
     maskId: maskId,
     classifications: alphabeticalClassifications,
-    best_result: bestResult,
     timestamp: new Date().toISOString()
   };
 };

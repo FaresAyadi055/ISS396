@@ -70,7 +70,7 @@ SmartCropDiseaseReporter/
 ├── app/
 │   └── src/
 │       └── main/
-│           └── cpp/          ← NCNN + OpenCV packages go here
+│           └── cpp/          ← Extracted packages go here
 ├── web/
 │   └── .env                  ← Hugging Face and Google API key
 └── ...
