@@ -11,11 +11,11 @@
             android:title="Open Camera" />
         <item
             android:id="@+id/nav_scans"
-            android:icon="@android:drawable/ic_menu_recent_history"
+            android:icon="@android:drawable/ic_menu_search"
             android:title="View Scans" />
         <item
             android:id="@+id/nav_reports"
-            android:icon="@android:drawable/ic_menu_manage"
+            android:icon="@android:drawable/ic_menu_agenda"
             android:title="View Reports" />
     </group>
     <item android:title="Account">
