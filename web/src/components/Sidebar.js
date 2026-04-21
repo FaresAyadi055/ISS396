@@ -28,6 +28,7 @@ export default function Sidebar({ collapsed, onCollapse }) {
     } catch (error) {
       console.error('Logout error:', error)
     } finally {
+
       setLoggingOut(false)
     }
   }
@@ -40,7 +41,7 @@ export default function Sidebar({ collapsed, onCollapse }) {
     { path: '/admin/farmers', icon: Users, label: 'Farmers' },
     { path: '/admin/reports', icon: FileText, label: 'Reports' },
     { path: '/admin/scans', icon: ImageIcon, label: 'Scans' },
-    //{ path: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
+    //  { path: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
     //{ path: '/admin/notifications', icon: Bell, label: 'Notifications', badge: 3 },
   ]
 

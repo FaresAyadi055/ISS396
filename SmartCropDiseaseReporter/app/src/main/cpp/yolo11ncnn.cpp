@@ -369,6 +369,37 @@ JNIEXPORT jboolean JNICALL Java_com_tencent_yolo11ncnn_YOLO11Ncnn_isStillCapture
     return g_still_captured ? JNI_TRUE : JNI_FALSE;
 }
 
+JNIEXPORT jboolean JNICALL Java_com_tencent_yolo11ncnn_YOLO11Ncnn_processBitmap(JNIEnv* env, jobject thiz, jobject bitmap)
+{
+    AndroidBitmapInfo info;
+    if (AndroidBitmap_getInfo(env, bitmap, &info) < 0) return JNI_FALSE;
+    if (info.format != ANDROID_BITMAP_FORMAT_RGBA_8888) return JNI_FALSE;
+
+    void* pixels = 0;
+    if (AndroidBitmap_lockPixels(env, bitmap, &pixels) < 0) return JNI_FALSE;
+
+    cv::Mat rgba(info.height, info.width, CV_8UC4, pixels);
+    cv::Mat rgb;
+    cv::cvtColor(rgba, rgb, cv::COLOR_RGBA2RGB);
+
+    AndroidBitmap_unlockPixels(env, bitmap);
+
+    {
+        ncnn::MutexLockGuard g(still_lock);
+        g_still_frame = rgb.clone();
+        g_still_objects.clear();
+
+        ncnn::MutexLockGuard g_model(lock);
+        if (g_yolo11)
+        {
+            g_yolo11->detect(g_still_frame, g_still_objects);
+        }
+        g_still_captured = true;
+    }
+
+    return JNI_TRUE;
+}
+
 JNIEXPORT jobjectArray JNICALL Java_com_tencent_yolo11ncnn_YOLO11Ncnn_getDetectedMasks(JNIEnv* env, jobject thiz)
 {
     ncnn::MutexLockGuard g_still(still_lock);
@@ -376,14 +407,17 @@ JNIEXPORT jobjectArray JNICALL Java_com_tencent_yolo11ncnn_YOLO11Ncnn_getDetecte
     const cv::Mat* source_frame = NULL;
     const std::vector<Object>* source_objects = NULL;
 
-    if (g_still_captured && !g_still_frame.empty() && !g_still_objects.empty())
+    if (g_still_captured)
     {
+        if (g_still_frame.empty() || g_still_objects.empty())
+            return NULL;
+
         source_frame = &g_still_frame;
         source_objects = &g_still_objects;
     }
     else
     {
-        // Fallback to preview frame if still hasn't arrived
+        // Fallback to preview frame
         ncnn::MutexLockGuard g_preview(lock);
         if (g_last_frame_clean.empty() || g_last_objects.empty())
             return NULL;
@@ -445,10 +479,29 @@ JNIEXPORT jobjectArray JNICALL Java_com_tencent_yolo11ncnn_YOLO11Ncnn_getDetecte
 
 JNIEXPORT jobject JNICALL Java_com_tencent_yolo11ncnn_YOLO11Ncnn_getLastFrame(JNIEnv* env, jobject thiz)
 {
-    ncnn::MutexLockGuard g(lock);
+    cv::Mat frame_to_draw;
 
-    if (g_last_frame.empty())
-        return NULL;
+    {
+        ncnn::MutexLockGuard g_still(still_lock);
+        if (g_still_captured)
+        {
+            if (g_still_frame.empty()) return NULL;
+            frame_to_draw = g_still_frame.clone();
+
+            ncnn::MutexLockGuard g_model(lock);
+            if (g_yolo11)
+            {
+                g_yolo11->draw(frame_to_draw, g_still_objects);
+            }
+        }
+    }
+
+    if (frame_to_draw.empty())
+    {
+        ncnn::MutexLockGuard g_preview(lock);
+        if (g_last_frame.empty()) return NULL;
+        frame_to_draw = g_last_frame.clone();
+    }
 
     jclass bitmapClass = env->FindClass("android/graphics/Bitmap");
     jmethodID createBitmapMethod = env->GetStaticMethodID(bitmapClass, "createBitmap", "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;");
@@ -457,13 +510,15 @@ JNIEXPORT jobject JNICALL Java_com_tencent_yolo11ncnn_YOLO11Ncnn_getLastFrame(JN
     jobject argb8888Config = env->GetStaticObjectField(configClass, argb8888Field);
 
     cv::Mat frame_rgba;
-    cv::cvtColor(g_last_frame, frame_rgba, cv::COLOR_RGB2RGBA);
+    cv::Mat frame_resized;
+    cv::resize(frame_to_draw, frame_resized, cv::Size(640, 480));
+    cv::cvtColor(frame_resized, frame_rgba, cv::COLOR_RGB2RGBA);
 
-    jobject bitmap = env->CallStaticObjectMethod(bitmapClass, createBitmapMethod, frame_rgba.cols, frame_rgba.rows, argb8888Config);
+    jobject bitmap = env->CallStaticObjectMethod(bitmapClass, createBitmapMethod, 640, 480, argb8888Config);
 
     void* pixels = 0;
     AndroidBitmap_lockPixels(env, bitmap, &pixels);
-    memcpy(pixels, frame_rgba.data, frame_rgba.cols * frame_rgba.rows * 4);
+    memcpy(pixels, frame_rgba.data, 640 * 480 * 4);
     AndroidBitmap_unlockPixels(env, bitmap);
 
     return bitmap;
@@ -471,10 +526,23 @@ JNIEXPORT jobject JNICALL Java_com_tencent_yolo11ncnn_YOLO11Ncnn_getLastFrame(JN
 
 JNIEXPORT jobject JNICALL Java_com_tencent_yolo11ncnn_YOLO11Ncnn_getCleanFrame(JNIEnv* env, jobject thiz)
 {
-    ncnn::MutexLockGuard g(lock);
+    cv::Mat frame;
 
-    if (g_last_frame_clean.empty())
-        return NULL;
+    {
+        ncnn::MutexLockGuard g_still(still_lock);
+        if (g_still_captured)
+        {
+            if (g_still_frame.empty()) return NULL;
+            frame = g_still_frame.clone();
+        }
+    }
+
+    if (frame.empty())
+    {
+        ncnn::MutexLockGuard g_preview(lock);
+        if (g_last_frame_clean.empty()) return NULL;
+        frame = g_last_frame_clean.clone();
+    }
 
     jclass bitmapClass = env->FindClass("android/graphics/Bitmap");
     jmethodID createBitmapMethod = env->GetStaticMethodID(bitmapClass, "createBitmap", "(IILandroid/graphics/Bitmap$Config;)Landroid/graphics/Bitmap;");
@@ -483,13 +551,15 @@ JNIEXPORT jobject JNICALL Java_com_tencent_yolo11ncnn_YOLO11Ncnn_getCleanFrame(J
     jobject argb8888Config = env->GetStaticObjectField(configClass, argb8888Field);
 
     cv::Mat frame_rgba;
-    cv::cvtColor(g_last_frame_clean, frame_rgba, cv::COLOR_RGB2RGBA);
+    cv::Mat frame_resized;
+    cv::resize(frame, frame_resized, cv::Size(640, 480));
+    cv::cvtColor(frame_resized, frame_rgba, cv::COLOR_RGB2RGBA);
 
-    jobject bitmap = env->CallStaticObjectMethod(bitmapClass, createBitmapMethod, frame_rgba.cols, frame_rgba.rows, argb8888Config);
+    jobject bitmap = env->CallStaticObjectMethod(bitmapClass, createBitmapMethod, 640, 480, argb8888Config);
 
     void* pixels = 0;
     AndroidBitmap_lockPixels(env, bitmap, &pixels);
-    memcpy(pixels, frame_rgba.data, frame_rgba.cols * frame_rgba.rows * 4);
+    memcpy(pixels, frame_rgba.data, 640 * 480 * 4);
     AndroidBitmap_unlockPixels(env, bitmap);
 
     return bitmap;

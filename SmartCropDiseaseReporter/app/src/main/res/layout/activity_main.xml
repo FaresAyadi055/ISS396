@@ -16,6 +16,17 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <ImageButton
+        android:id="@+id/btnSettings"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_margin="16dp"
+        android:background="@drawable/green_gradient_bg"
+        android:src="@android:drawable/ic_menu_preferences"
+        android:contentDescription="Settings"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
     <LinearLayout
         android:id="@+id/controlPanel"
         android:layout_width="0dp"
@@ -47,12 +58,12 @@
             android:textStyle="bold" />
 
         <ImageButton
-            android:id="@+id/btnSettings"
+            android:id="@+id/btnGallery"
             android:layout_width="56dp"
             android:layout_height="56dp"
             android:background="@drawable/green_gradient_bg"
-            android:src="@android:drawable/ic_menu_preferences"
-            android:contentDescription="Settings"
+            android:src="@android:drawable/ic_menu_gallery"
+            android:contentDescription="Open Gallery"
             android:layout_marginStart="16dp" />
 
     </LinearLayout>
@@ -102,14 +113,32 @@
 
     </LinearLayout>
 
-    <ProgressBar
-        android:id="@+id/loadingProgress"
+    <LinearLayout
+        android:id="@+id/loadingLayout"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
         android:visibility="gone"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <ProgressBar
+            android:id="@+id/loadingProgress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+
+        <Button
+            android:id="@+id/btnCancel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Cancel"
+            android:layout_marginTop="8dp"
+            android:backgroundTint="@android:color/holo_red_dark"
+            android:textColor="@android:color/white" />
+
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

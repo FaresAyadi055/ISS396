@@ -15,6 +15,7 @@ class YOLO11Ncnn {
     external fun getCleanFrame(): Bitmap?
     external fun captureStill(): Boolean
     external fun isStillCaptured(): Boolean
+    external fun processBitmap(bitmap: Bitmap): Boolean
 
     companion object {
         init {

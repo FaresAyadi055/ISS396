@@ -41,17 +41,31 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
     private lateinit var btnAnalyze: Button
     private lateinit var btnBack: ImageButton
     private lateinit var btnSettings: ImageButton
+    private lateinit var btnGallery: ImageButton
     private lateinit var controlPanel: LinearLayout
     private lateinit var resultPanel: LinearLayout
     private lateinit var btnContinue: Button
     private lateinit var btnFinish: Button
     private lateinit var btnViewScan: Button
     private lateinit var loadingProgress: ProgressBar
+    private lateinit var loadingLayout: LinearLayout
+    private lateinit var btnCancel: Button
+
+    private var analysisJob: kotlinx.coroutines.Job? = null
 
     private lateinit var settingsManager: SettingsManager
     private lateinit var loginRepository: LoginRepository
     private var currentModelId = 3 // Default to n-480
     private var currentCpuGpu = 1 // Default to GPU
+
+    private val pickImageLauncher = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            val bitmap = android.graphics.BitmapFactory.decodeStream(contentResolver.openInputStream(it))
+            if (bitmap != null) {
+                analyzeGalleryImage(bitmap)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,12 +81,15 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
         btnAnalyze = findViewById(R.id.btnAnalyze)
         btnBack = findViewById(R.id.btnBack)
         btnSettings = findViewById(R.id.btnSettings)
+        btnGallery = findViewById(R.id.btnGallery)
         controlPanel = findViewById(R.id.controlPanel)
         resultPanel = findViewById(R.id.resultPanel)
         btnContinue = findViewById(R.id.btnContinue)
         btnFinish = findViewById(R.id.btnFinish)
         btnViewScan = findViewById(R.id.btnViewScan)
         loadingProgress = findViewById(R.id.loadingProgress)
+        loadingLayout = findViewById(R.id.loadingLayout)
+        btnCancel = findViewById(R.id.btnCancel)
 
         setupButtons()
         
@@ -105,6 +122,14 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
             showSettingsDialog()
         }
 
+        btnGallery.setOnClickListener {
+            if (loginRepository.user == null) {
+                Toast.makeText(this, "Please login to analyze and upload scans", Toast.LENGTH_SHORT).show()
+            } else {
+                pickImageLauncher.launch("image/*")
+            }
+        }
+
         btnContinue.setOnClickListener {
             resultPanel.visibility = View.GONE
             controlPanel.visibility = View.VISIBLE
@@ -118,6 +143,13 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
             val intent = Intent(this, ScansActivity::class.java)
             intent.putExtra("SESSION_ID", sessionId)
             startActivity(intent)
+        }
+
+        btnCancel.setOnClickListener {
+            analysisJob?.cancel()
+            loadingLayout.visibility = View.GONE
+            controlPanel.visibility = View.VISIBLE
+            Toast.makeText(this, "Analysis cancelled", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -163,13 +195,24 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
             .show()
     }
 
+    private fun analyzeGalleryImage(bitmap: Bitmap) {
+        analysisJob = lifecycleScope.launch {
+            loadingLayout.visibility = View.VISIBLE
+            controlPanel.visibility = View.GONE
+            
+            withContext(Dispatchers.Default) {
+                yolo11ncnn.processBitmap(bitmap)
+            }
+            
+            performAnalysisFlow()
+        }
+    }
+
     private fun analyzeFrame() {
-        val user = loginRepository.user ?: return
+        analysisJob = lifecycleScope.launch {
+            loadingLayout.visibility = View.VISIBLE
+            controlPanel.visibility = View.GONE
 
-        loadingProgress.visibility = View.VISIBLE
-        controlPanel.visibility = View.GONE
-
-        lifecycleScope.launch {
             yolo11ncnn.captureStill()
             
             var timeout = 0
@@ -177,100 +220,106 @@ class CameraActivity : AppCompatActivity(), SurfaceHolder.Callback {
                 delay(50)
                 timeout++
             }
-
-            val maskedBitmap = yolo11ncnn.getLastFrame() 
-            val cleanBitmap = yolo11ncnn.getCleanFrame() 
-            val masks = yolo11ncnn.getDetectedMasks() 
             
-            if (masks == null || masks.isEmpty()) {
-                loadingProgress.visibility = View.GONE
-                controlPanel.visibility = View.VISIBLE
-                Toast.makeText(this@CameraActivity, "No leaves detected", Toast.LENGTH_SHORT).show()
-                return@launch
-            }
+            performAnalysisFlow()
+        }
+    }
 
-            if (maskedBitmap == null || cleanBitmap == null) {
-                loadingProgress.visibility = View.GONE
-                controlPanel.visibility = View.VISIBLE
-                Toast.makeText(this@CameraActivity, "Capture failed", Toast.LENGTH_SHORT).show()
-                return@launch
-            }
+    private suspend fun performAnalysisFlow() {
+        val user = loginRepository.user ?: return
 
-            val backendUrl = settingsManager.getBackendUrl()
-            if (backendUrl.isBlank()) {
-                loadingProgress.visibility = View.GONE
-                controlPanel.visibility = View.VISIBLE
-                Toast.makeText(this@CameraActivity, "URL not configured", Toast.LENGTH_SHORT).show()
-                return@launch
-            }
+        val maskedBitmap = yolo11ncnn.getLastFrame() 
+        val cleanBitmap = yolo11ncnn.getCleanFrame() 
+        val masks = yolo11ncnn.getDetectedMasks() 
+        
+        if (masks == null || masks.isEmpty()) {
+            loadingLayout.visibility = View.GONE
+            controlPanel.visibility = View.VISIBLE
+            Toast.makeText(this@CameraActivity, "No leaves detected", Toast.LENGTH_SHORT).show()
+            return
+        }
 
-            try {
-                val request = withContext(Dispatchers.IO) {
-                    val builder = MultipartBody.Builder()
-                        .setType(MultipartBody.FORM)
-                        .addFormDataPart("sessionId", sessionId)
-                        .addFormDataPart("location", "[10.1815, 36.8065]")
-                        .addFormDataPart("date", SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).format(Date()))
+        if (maskedBitmap == null || cleanBitmap == null) {
+            loadingLayout.visibility = View.GONE
+            controlPanel.visibility = View.VISIBLE
+            Toast.makeText(this@CameraActivity, "Capture failed", Toast.LENGTH_SHORT).show()
+            return
+        }
 
-                    val maskedStream = ByteArrayOutputStream()
-                    maskedBitmap.compress(Bitmap.CompressFormat.JPEG, 70, maskedStream)
-                    builder.addFormDataPart("original_image_masked", "masked.jpg", 
-                        maskedStream.toByteArray().toRequestBody("image/jpeg".toMediaTypeOrNull()))
+        val backendUrl = settingsManager.getBackendUrl()
+        if (backendUrl.isBlank()) {
+            loadingLayout.visibility = View.GONE
+            controlPanel.visibility = View.VISIBLE
+            Toast.makeText(this@CameraActivity, "URL not configured", Toast.LENGTH_SHORT).show()
+            return
+        }
 
-                    val cleanStream = ByteArrayOutputStream()
-                    cleanBitmap.compress(Bitmap.CompressFormat.JPEG, 70, cleanStream)
-                    builder.addFormDataPart("original_image_clean", "clean.jpg", 
-                        cleanStream.toByteArray().toRequestBody("image/jpeg".toMediaTypeOrNull()))
+        try {
+            val request = withContext(Dispatchers.IO) {
+                val builder = MultipartBody.Builder()
+                    .setType(MultipartBody.FORM)
+                    .addFormDataPart("sessionId", sessionId)
+                    .addFormDataPart("location", "[10.1815, 36.8065]")
+                    .addFormDataPart("date", SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).format(Date()))
 
-                    masks.forEachIndexed { index, bitmap ->
-                        val stream = ByteArrayOutputStream()
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 80, stream)
-                        builder.addFormDataPart("masks", "mask_$index.jpg", 
-                            stream.toByteArray().toRequestBody("image/jpeg".toMediaTypeOrNull()))
-                    }
+                val maskedStream = ByteArrayOutputStream()
+                maskedBitmap.compress(Bitmap.CompressFormat.JPEG, 70, maskedStream)
+                builder.addFormDataPart("original_image_masked", "masked.jpg", 
+                    maskedStream.toByteArray().toRequestBody("image/jpeg".toMediaTypeOrNull()))
 
-                    val uploadUrl = if (backendUrl.endsWith("/")) "${backendUrl}api/scans" else "$backendUrl/api/scans"
-                    
-                    Request.Builder()
-                        .url(uploadUrl)
-                        .addHeader("Authorization", "Bearer ${user.token}")
-                        .post(builder.build())
-                        .build()
+                val cleanStream = ByteArrayOutputStream()
+                cleanBitmap.compress(Bitmap.CompressFormat.JPEG, 70, cleanStream)
+                builder.addFormDataPart("original_image_clean", "clean.jpg", 
+                    cleanStream.toByteArray().toRequestBody("image/jpeg".toMediaTypeOrNull()))
+
+                masks.forEachIndexed { index, bitmap ->
+                    val stream = ByteArrayOutputStream()
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 80, stream)
+                    builder.addFormDataPart("masks", "mask_$index.jpg", 
+                        stream.toByteArray().toRequestBody("image/jpeg".toMediaTypeOrNull()))
                 }
 
-                val client = OkHttpClient.Builder()
-                    .connectTimeout(60, TimeUnit.SECONDS)
-                    .writeTimeout(180, TimeUnit.SECONDS)
-                    .readTimeout(60, TimeUnit.SECONDS)
+                val uploadUrl = if (backendUrl.endsWith("/")) "${backendUrl}api/scans" else "$backendUrl/api/scans"
+                
+                Request.Builder()
+                    .url(uploadUrl)
+                    .addHeader("Authorization", "Bearer ${user.token}")
+                    .post(builder.build())
                     .build()
-
-                client.newCall(request).enqueue(object : okhttp3.Callback {
-                    override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
-                        runOnUiThread {
-                            loadingProgress.visibility = View.GONE
-                            controlPanel.visibility = View.VISIBLE
-                            Toast.makeText(this@CameraActivity, "Upload Failed: No connection", Toast.LENGTH_LONG).show()
-                        }
-                    }
-
-                    override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
-                        runOnUiThread {
-                            loadingProgress.visibility = View.GONE
-                            if (response.isSuccessful) {
-                                Toast.makeText(this@CameraActivity, "Success!", Toast.LENGTH_SHORT).show()
-                                resultPanel.visibility = View.VISIBLE
-                            } else {
-                                Toast.makeText(this@CameraActivity, "Server error", Toast.LENGTH_SHORT).show()
-                                controlPanel.visibility = View.VISIBLE
-                            }
-                        }
-                    }
-                })
-            } catch (e: Exception) {
-                loadingProgress.visibility = View.GONE
-                controlPanel.visibility = View.VISIBLE
-                Toast.makeText(this@CameraActivity, "Preparation failed", Toast.LENGTH_SHORT).show()
             }
+
+            val client = OkHttpClient.Builder()
+                .connectTimeout(60, TimeUnit.SECONDS)
+                .writeTimeout(180, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .build()
+
+            client.newCall(request).enqueue(object : okhttp3.Callback {
+                override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
+                    runOnUiThread {
+                        loadingLayout.visibility = View.GONE
+                        controlPanel.visibility = View.VISIBLE
+                        Toast.makeText(this@CameraActivity, "Upload Failed: No connection", Toast.LENGTH_LONG).show()
+                    }
+                }
+
+                override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                    runOnUiThread {
+                        loadingLayout.visibility = View.GONE
+                        if (response.isSuccessful) {
+                            Toast.makeText(this@CameraActivity, "Success!", Toast.LENGTH_SHORT).show()
+                            resultPanel.visibility = View.VISIBLE
+                        } else {
+                            Toast.makeText(this@CameraActivity, "Server error", Toast.LENGTH_SHORT).show()
+                            controlPanel.visibility = View.VISIBLE
+                        }
+                    }
+                }
+            })
+        } catch (e: Exception) {
+            loadingLayout.visibility = View.GONE
+            controlPanel.visibility = View.VISIBLE
+            Toast.makeText(this@CameraActivity, "Preparation failed", Toast.LENGTH_SHORT).show()
         }
     }
 
