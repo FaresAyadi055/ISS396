@@ -49,6 +49,7 @@ DetectionSchema.virtual("maskBase64").get(function () {
 const ImageScanSchema = new mongoose.Schema(
   {
     scan_id: { type: String, required: true, trim: true },
+    cropType: { type: String, trim: true },
     original_image_masked: { type: Buffer, required: true },   // with masks drawn
     original_image_clean: { type: Buffer, required: true },    // clean version
     detections: { type: [DetectionSchema], default: [] },
@@ -99,6 +100,7 @@ ScanSchema.methods.appendScan = function (scanEntry) {
 
   this.scans.push({
     scan_id: scanEntry.scan_id,
+    cropType: scanEntry.cropType || null,
     original_image_masked: Buffer.from(scanEntry.original_image_masked, "base64"),
     original_image_clean: Buffer.from(scanEntry.original_image_clean, "base64"),
     detections: detections,

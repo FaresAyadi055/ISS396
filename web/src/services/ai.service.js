@@ -40,7 +40,6 @@ async function getAlphabeticalClassNames() {
       if (id2label) {
         const labels = Object.values(id2label);
         alphabeticalClassNames = [...labels].sort((a, b) => a.localeCompare(b));
-        console.log(`Loaded ${alphabeticalClassNames.length} class names, sorted alphabetically`);
         return alphabeticalClassNames;
       }
     }

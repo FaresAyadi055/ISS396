@@ -1,109 +1,138 @@
 'use client'
 
 import { useState } from 'react'
-import { Bell, Search, Menu, User } from 'lucide-react'
+import { Bell, Menu, User, HelpCircle } from 'lucide-react'
+import SearchInput from '@/components/SearchInput'
 
-export default function Navbar({ title, onMenuClick }) {
+export default function Navbar({ title, subtitle, onMenuClick }) {
   const [showNotifications, setShowNotifications] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
-  function Logout() {
+
+  function logout() {
     window.location.href = '/login'
   }
+
+  const dateLine =
+    subtitle ||
+    new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
+
   return (
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-10">
-      <div className="px-4 sm:px-6 py-3">
-        <div className="flex items-center justify-between">
-          {/* Left section with menu toggle and title */}
-          <div className="flex items-center gap-4">
-            <button
-              onClick={onMenuClick}
-              className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition"
-            >
-              <Menu className="w-5 h-5 text-gray-600" />
-            </button>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-semibold text-gray-800">{title}</h1>
-              <p className="text-sm text-gray-500 hidden sm:block">
-                {new Date().toLocaleDateString('en-US', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })}
-              </p>
-            </div>
+    <header className="sticky top-0 z-40 -mx-4 border-b border-outline bg-surface-elevated/95 px-4 shadow-sm backdrop-blur-sm sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+      <div className="flex w-full flex-wrap items-center justify-between gap-4 py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <button
+            type="button"
+            onClick={onMenuClick}
+            className="rounded-lg p-2 text-ink-secondary transition hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-brand/30 lg:hidden"
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-bold tracking-tight text-ink sm:text-xl">
+              {title}
+            </h1>
+            <p className="hidden text-sm text-ink-tertiary sm:block">{dateLine}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1 sm:gap-2">
+          <div className="hidden min-w-0 max-w-xs flex-1 sm:block sm:max-w-md">
+            <SearchInput
+              type="search"
+              placeholder="Search reports, farmers, or findings…"
+              aria-label="Search"
+              className="w-full"
+            />
           </div>
 
-          {/* Right section with search and actions */}
-          <div className="flex items-center gap-2 sm:gap-4">
-            {/* Search Bar - Hidden on mobile, visible on sm+ */}
-            <div className="hidden sm:relative sm:flex sm:items-center">
-              <Search className="w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search..."
-                className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-gray-400 w-64"
-              />
-            </div>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="relative rounded-full p-2 text-ink-secondary transition hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-brand/30"
+              aria-expanded={showNotifications}
+              aria-haspopup="true"
+            >
+              <Bell className="h-5 w-5" />
+              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-error ring-2 ring-white" />
+            </button>
 
-            {/* Notifications */}
-            <div className="relative">
-              <button
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition relative"
-              >
-                <Bell className="w-5 h-5 text-gray-600" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
-              
-              {/* Notifications dropdown */}
-              {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 py-2">
-                  <div className="px-4 py-2 border-b border-gray-100">
-                    <h3 className="font-semibold text-gray-800">Notifications</h3>
-                  </div>
-                  <div className="max-h-96 overflow-y-auto">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="px-4 py-3 hover:bg-gray-50 cursor-pointer">
-                        <p className="text-sm text-gray-800">New farmer registered</p>
-                        <p className="text-xs text-gray-500 mt-1">5 minutes ago</p>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="px-4 py-2 border-t border-gray-100">
-                    <button className="text-sm text-blue-600 hover:text-blue-700">
-                      View all notifications
-                    </button>
-                  </div>
+            {showNotifications && (
+              <div className="absolute right-0 mt-2 w-80 overflow-hidden rounded-xl border border-outline bg-surface-elevated py-2 shadow-lg">
+                <div className="border-b border-outline px-4 py-2">
+                  <h3 className="text-sm font-semibold text-ink">Notifications</h3>
                 </div>
-              )}
-            </div>
+                <div className="max-h-96 overflow-y-auto">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="cursor-pointer px-4 py-3 hover:bg-surface-muted">
+                      <p className="text-sm text-ink">New farmer registered</p>
+                      <p className="mt-1 text-xs text-ink-tertiary">5 minutes ago</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="border-t border-outline px-4 py-2">
+                  <button
+                    type="button"
+                    className="text-sm font-medium text-brand-ink hover:text-brand-dark"
+                  >
+                    View all notifications
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
-            {/* Profile */}
-            <div className="relative">
-              <button
-                onClick={() => setShowProfile(!showProfile)}
-                className="flex items-center gap-2 p-1 hover:bg-gray-100 rounded-lg transition"
-              >
-                <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                  <User className="w-4 h-4 text-gray-600" />
-                </div>
-                <span className="hidden sm:block text-sm font-medium text-gray-700">Admin</span>
-              </button>
+          <button
+            type="button"
+            className="hidden rounded-full p-2 text-ink-secondary transition hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-brand/30 sm:inline-flex"
+            aria-label="Help"
+          >
+            <HelpCircle className="h-5 w-5" />
+          </button>
 
-              {/* Profile dropdown */}
-              {showProfile && (
-                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
-                  <a href="/admin/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Profile</a>
-                  <a href="/admin/settings" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Settings</a>
-                  <hr className="my-1 border-gray-100" />
-                  <button className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-50" onClick={Logout()}>Logout</button>
-                </div>
-              )}
-            </div>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowProfile(!showProfile)}
+              className="flex items-center gap-2 rounded-lg p-1.5 pl-2 transition hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-brand/30"
+              aria-expanded={showProfile}
+              aria-haspopup="true"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-outline-strong bg-surface-muted">
+                <User className="h-4 w-4 text-ink-secondary" />
+              </div>
+              <span className="hidden max-w-[120px] truncate text-sm font-semibold text-ink sm:inline">
+                Admin
+              </span>
+            </button>
+
+            {showProfile && (
+              <div className="absolute right-0 mt-2 w-52 overflow-hidden rounded-xl border border-outline bg-surface-elevated py-1 shadow-lg">
+                <a
+                  href="/admin/settings"
+                  className="block px-4 py-2.5 text-sm text-ink hover:bg-surface-muted"
+                >
+                  Settings
+                </a>
+                <hr className="border-outline" />
+                <button
+                  type="button"
+                  className="w-full px-4 py-2.5 text-left text-sm font-medium text-error hover:bg-red-50"
+                  onClick={logout}
+                >
+                  Logout
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
-    </nav>
+    </header>
   )
 }

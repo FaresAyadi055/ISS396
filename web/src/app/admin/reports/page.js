@@ -4,10 +4,10 @@ import { useState, useEffect } from 'react'
 import Navbar from '@/components/Navbar'
 import Table from '@/components/Table'
 import Button from '@/components/Button'
+import SearchInput from '@/components/SearchInput'
 import axios from 'axios'
 import {
   FileText,
-  Search,
   Filter,
   Download,
   Calendar,
@@ -17,19 +17,14 @@ import {
   XCircle,
   Eye,
   Trash2,
-  Image as ImageIcon,
   User,
   RefreshCw,
-  ChevronDown,
   BarChart3,
-  PieChart,
   X,
-  Maximize2,
   Minimize2,
   Printer,
   Share2
 } from 'lucide-react'
-import Image from 'next/image'
 
 export default function ReportsPage() {
   const [reports, setReports] = useState([])
@@ -269,19 +264,18 @@ export default function ReportsPage() {
   return (
     <>
       <Navbar title="Reports Management" />
-      <div className="flex-1 overflow-auto bg-gray-50 p-4 lg:p-8">
-        {/* Header Section */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+      <div className="min-h-0 flex-1 overflow-auto bg-surface">
+        <div className="mb-8 space-y-6">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">
+              <h2 className="mb-2 text-2xl font-bold tracking-tight text-ink md:text-3xl">
                 Reports Management
               </h2>
-              <p className="text-gray-500">
+              <p className="max-w-xl text-ink-secondary">
                 View and manage all diagnostic reports from farmers
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <Button
                 onClick={() => setShowStats(!showStats)}
                 variant="outline"
@@ -300,54 +294,45 @@ export default function ReportsPage() {
             </div>
           </div>
 
-          {/* Statistics Cards */}
           {showStats && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <FileText className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Total Reports</p>
-                    <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
-                  </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
+              <div className="flex items-start gap-4 rounded-xl border border-outline bg-surface-elevated p-5 shadow-sm transition hover:shadow-md">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-brand-ink">
+                  <FileText className="h-7 w-7" />
+                </div>
+                <div>
+                  <span className="text-sm text-ink-secondary">Total Reports</span>
+                  <p className="text-3xl font-bold tracking-tight text-ink">{stats.total}</p>
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                    <CheckCircle className="w-6 h-6 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Completed</p>
-                    <p className="text-2xl font-bold text-gray-800">{stats.completed}</p>
-                  </div>
+              <div className="flex items-start gap-4 rounded-xl border border-outline bg-surface-elevated p-5 shadow-sm transition hover:shadow-md">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-success">
+                  <CheckCircle className="h-7 w-7" />
+                </div>
+                <div>
+                  <span className="text-sm text-ink-secondary">Completed</span>
+                  <p className="text-3xl font-bold tracking-tight text-ink">{stats.completed}</p>
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                    <Clock className="w-6 h-6 text-yellow-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Pending</p>
-                    <p className="text-2xl font-bold text-gray-800">{stats.pending}</p>
-                  </div>
+              <div className="flex items-start gap-4 rounded-xl border border-outline bg-surface-elevated p-5 shadow-sm transition hover:shadow-md">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-warning">
+                  <Clock className="h-7 w-7" />
+                </div>
+                <div>
+                  <span className="text-sm text-ink-secondary">Pending</span>
+                  <p className="text-3xl font-bold tracking-tight text-ink">{stats.pending}</p>
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <AlertCircle className="w-6 h-6 text-purple-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500 mb-1">Failed</p>
-                    <p className="text-2xl font-bold text-gray-800">{stats.failed}</p>
-                  </div>
+              <div className="flex items-start gap-4 rounded-xl border border-outline bg-surface-elevated p-5 shadow-sm transition hover:shadow-md">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-red-50 text-error">
+                  <AlertCircle className="h-7 w-7" />
+                </div>
+                <div>
+                  <span className="text-sm text-ink-secondary">Failed</span>
+                  <p className="text-3xl font-bold tracking-tight text-ink">{stats.failed}</p>
                 </div>
               </div>
             </div>
@@ -375,16 +360,18 @@ export default function ReportsPage() {
         )}
 
         {/* Filters and Search */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+        <div className="mb-6 overflow-hidden rounded-xl border border-outline bg-surface-elevated p-4 shadow-sm">
           <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
             <div className="flex items-center gap-3 w-full lg:w-auto">
-              <div className="relative flex-1 lg:w-96">
-                <input
-                  type="text"
-                  placeholder="Search by farmer, crop, or result..."
+              <div className="flex-1 lg:w-96">
+                <SearchInput
+                  type="search"
+                  placeholder="Search by farmer, crop, or result…"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-gray-400"
+                  className="w-full"
+                  rounded="xl"
+                  inputClassName="py-3"
                 />
               </div>
               <button
@@ -488,7 +475,7 @@ export default function ReportsPage() {
         </div>
 
         {/* Reports Table */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mb-6">
+        <div className="mb-6 overflow-hidden rounded-xl border border-outline bg-surface-elevated shadow-sm">
           {loading ? (
             <div className="p-12 text-center">
               <div className="inline-flex items-center gap-3 px-6 py-3 bg-gray-100 rounded-lg">
@@ -573,146 +560,182 @@ export default function ReportsPage() {
 
         {/* Report Details Modal */}
         {selectedReport && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              {/* Modal Header */}
-              <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-start justify-between">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 p-4 backdrop-blur-sm">
+            <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-outline bg-surface-elevated shadow-2xl">
+              <div className="flex shrink-0 items-start justify-between border-b border-outline bg-surface-elevated p-6">
                 <div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-1">
+                  <h3 className="mb-1 text-xl font-bold text-ink">
                     Report Details
                   </h3>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-ink-secondary">
                     View complete information about this diagnostic report
                   </p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setSelectedReport(null)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition"
+                  className="rounded-full p-2 text-ink-tertiary transition hover:bg-surface-muted"
                 >
-                  <X className="w-5 h-5 text-gray-500" />
+                  <X className="h-5 w-5" />
                 </button>
               </div>
 
-              {/* Modal Content */}
-              <div className="p-6 space-y-6">
-                {/* Farmer Information */}
-                <div className="bg-gray-50 rounded-xl p-6">
-                  <h4 className="text-sm font-medium text-gray-500 mb-4 flex items-center gap-2">
-                    <User className="w-4 h-4" />
-                    Farmer Information
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Name</p>
-                      <p className="text-base font-medium text-gray-800">
-                        {selectedReport.farmerId?.name || 'Unknown'}
+              <div className="min-h-0 flex-1 overflow-y-auto p-6">
+                <div className="grid gap-6 md:grid-cols-2">
+                  <section>
+                    <div className="mb-3 flex items-center gap-2 text-brand-ink">
+                      <User className="h-4 w-4" />
+                      <h4 className="text-sm font-semibold">Farmer Information</h4>
+                    </div>
+                    <div className="space-y-3 rounded-xl border border-outline bg-surface-muted/80 p-4">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-tight text-ink-tertiary">Name</p>
+                        <p className="text-base font-semibold text-ink">
+                          {selectedReport.farmerId?.name || 'Unknown'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-tight text-ink-tertiary">Email</p>
+                        <p className="text-sm text-ink">{selectedReport.farmerId?.email || 'N/A'}</p>
+                      </div>
+                    </div>
+                  </section>
+                  <section>
+                    <div className="mb-3 flex items-center gap-2 text-brand-ink">
+                      <FileText className="h-4 w-4" />
+                      <h4 className="text-sm font-semibold">Report Metadata</h4>
+                    </div>
+                    <div className="space-y-3 rounded-xl border border-outline bg-surface-muted/80 p-4">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-tight text-ink-tertiary">Crop Type</p>
+                        <p className="text-base font-semibold text-ink">
+                          {selectedReport.reportData?.header?.crop || 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-tight text-ink-tertiary">Scan ID</p>
+                        <p className="break-all font-mono text-xs text-ink">
+                          {selectedReport.reportData?.header?.scanId || 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+
+                <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
+                  <div className="rounded-xl border border-outline bg-surface-elevated p-5 shadow-sm lg:col-span-2">
+                    <div className="mb-4 flex items-center gap-2 text-brand-ink">
+                      <AlertCircle className="h-4 w-4" />
+                      <h4 className="text-sm font-semibold">Diagnosis</h4>
+                    </div>
+                    {selectedReport.reportData?.header?.avgConfidence && (
+                      <div className="mb-4 rounded-r-lg border-l-4 border-warning bg-amber-50/90 p-3 text-sm text-ink">
+                        <strong>Leaves analyzed:</strong>{' '}
+                        {selectedReport.reportData?.header?.leavesAnalyzed ?? '—'} —{' '}
+                        <strong>Primary finding:</strong>{' '}
+                        {selectedReport.reportData?.header?.result || 'N/A'} —{' '}
+                        <strong>Average confidence:</strong>{' '}
+                        {selectedReport.reportData.header.avgConfidence}
+                      </div>
+                    )}
+                    <p className="mb-6 text-sm leading-relaxed text-ink-secondary">
+                      {selectedReport.diagnosis || 'No diagnosis specified'}
+                    </p>
+                    {(selectedReport.embeddedImages?.original_image_masked ||
+                      selectedReport.embeddedImages?.original_image_clean) && (
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        {selectedReport.embeddedImages?.original_image_masked && (
+                          <div>
+                            <div className="mb-2 aspect-square overflow-hidden rounded-lg border border-outline bg-gray-100">
+                              <img
+                                src={`data:image/jpeg;base64,${selectedReport.embeddedImages.original_image_masked}`}
+                                alt="Masked overview"
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                            <p className="text-center text-xs text-ink-tertiary">Masked overview</p>
+                          </div>
+                        )}
+                        {selectedReport.embeddedImages?.original_image_clean && (
+                          <div>
+                            <div className="mb-2 aspect-square overflow-hidden rounded-lg border border-outline bg-gray-100">
+                              <img
+                                src={`data:image/jpeg;base64,${selectedReport.embeddedImages.original_image_clean}`}
+                                alt="Original image"
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                            <p className="text-center text-xs text-ink-tertiary">Original image</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div className="mt-4 border-t border-outline pt-4">
+                      <p className="text-xs font-bold uppercase tracking-tight text-ink-tertiary">Primary finding</p>
+                      <p className="text-lg font-semibold text-warning">
+                        {selectedReport.reportData?.header?.result || 'N/A'}
                       </p>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Email</p>
-                      <p className="text-base text-gray-800">
-                        {selectedReport.farmerId?.email || 'N/A'}
+                  </div>
+
+                  <div className="flex flex-col gap-4 rounded-xl bg-gradient-to-b from-brand-900 to-gray-900 p-5 text-white shadow-lg">
+                    <div className="flex items-center gap-2 text-emerald-200">
+                      <CheckCircle className="h-4 w-4" />
+                      <h4 className="text-sm font-semibold">Treatment</h4>
+                    </div>
+                    <div className="text-sm leading-relaxed text-emerald-50/95">
+                      {selectedReport.treatment || 'No treatment specified'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 rounded-xl border border-outline bg-surface-muted/60 p-6">
+                  <div className="mb-4 flex items-center gap-2 text-brand-ink">
+                    <Clock className="h-4 w-4" />
+                    <h4 className="text-sm font-semibold">Report Timeline</h4>
+                  </div>
+                  <div className="relative space-y-4 border-l-2 border-outline pl-6">
+                    <div className="relative">
+                      <span className="absolute -left-[25px] top-1.5 h-3 w-3 rounded-full bg-success ring-4 ring-surface-elevated" />
+                      <p className="text-sm font-medium text-ink">Report submitted</p>
+                      <p className="text-xs text-ink-tertiary">
+                        {new Date(selectedReport.createdAt).toLocaleString()}
                       </p>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Crop</p>
-                      <p className="text-base text-gray-800">
-                        {selectedReport.reportData?.header?.crop || 'N/A'}
+                    <div className="relative">
+                      <span className="absolute -left-[25px] top-1.5 h-3 w-3 rounded-full bg-brand ring-4 ring-surface-elevated" />
+                      <p className="text-sm font-medium text-ink">Analysis completed</p>
+                      <p className="text-xs text-ink-tertiary">
+                        {new Date(new Date(selectedReport.createdAt).getTime() + 180000).toLocaleString()}
                       </p>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Scan ID</p>
-                      <p className="text-base text-gray-800">
-                        {selectedReport.reportData?.header?.scanId || 'N/A'}
+                    <div className="relative">
+                      <span
+                        className={`absolute -left-[25px] top-1.5 h-3 w-3 rounded-full ring-4 ring-surface-elevated ${
+                          selectedReport.status === 'completed' ? 'bg-success' : 'bg-warning'
+                        }`}
+                      />
+                      <p className="text-sm font-medium text-ink">
+                        {selectedReport.status === 'completed' ? 'Completed' : 'In progress'}
+                      </p>
+                      <p className="text-xs text-ink-tertiary">
+                        {selectedReport.status === 'completed'
+                          ? new Date(selectedReport.updatedAt || selectedReport.createdAt).toLocaleString()
+                          : 'Awaiting completion'}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Diagnosis Details */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-gray-50 rounded-xl p-6">
-                    <h4 className="text-sm font-medium text-gray-500 mb-3">Diagnosis</h4>
-                    <p className="text-gray-800 mb-4">{selectedReport.diagnosis || 'No diagnosis specified'}</p>
-                    
-                    <div className="flex items-center gap-4">
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Primary Finding</p>
-                        <p className="text-sm font-medium text-gray-800">
-                          {selectedReport.reportData?.header?.result || 'N/A'}
-                        </p>
-                      </div>
-                      {selectedReport.reportData?.header?.leavesAnalyzed && (
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">Leaves Analyzed</p>
-                          <p className="text-sm font-medium text-gray-800">
-                            {selectedReport.reportData.header.leavesAnalyzed}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-50 rounded-xl p-6">
-                    <h4 className="text-sm font-medium text-gray-500 mb-3">Treatment</h4>
-                    <p className="text-gray-800">{selectedReport.treatment || 'No treatment specified'}</p>
-                  </div>
-                </div>
-
-                {/* Status Timeline */}
-                <div className="bg-gray-50 rounded-xl p-6">
-                  <h4 className="text-sm font-medium text-gray-500 mb-4 flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    Report Timeline
-                  </h4>
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-3">
-                      <div className="w-2 h-2 mt-2 bg-green-500 rounded-full"></div>
-                      <div>
-                        <p className="text-sm text-gray-800">Report submitted</p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(selectedReport.createdAt).toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="w-2 h-2 mt-2 bg-blue-500 rounded-full"></div>
-                      <div>
-                        <p className="text-sm text-gray-800">Assigned to specialist</p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(new Date(selectedReport.createdAt).getTime() + 3600000).toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className={`w-2 h-2 mt-2 rounded-full ${
-                        selectedReport.status === 'resolved' ? 'bg-green-500' : 'bg-yellow-500'
-                      }`}></div>
-                      <div>
-                        <p className="text-sm text-gray-800">
-                          {selectedReport.status === 'resolved' ? 'Report resolved' : 'In progress'}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {selectedReport.status === 'resolved' 
-                            ? new Date(new Date(selectedReport.createdAt).getTime() + 86400000).toLocaleString()
-                            : 'Ongoing'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Additional Notes */}
                 {selectedReport.notes && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
-                    <h4 className="text-sm font-medium text-yellow-800 mb-2">Additional Notes</h4>
-                    <p className="text-sm text-yellow-700">{selectedReport.notes}</p>
+                  <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                    <h4 className="mb-2 text-sm font-semibold text-amber-900">Additional Notes</h4>
+                    <p className="text-sm text-amber-800">{selectedReport.notes}</p>
                   </div>
                 )}
               </div>
 
-              {/* Modal Footer */}
-              <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6 flex justify-end gap-3">
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-outline bg-gray-50 p-4 sm:p-6">
                 <Button
                   variant="outline"
                   icon={Printer}

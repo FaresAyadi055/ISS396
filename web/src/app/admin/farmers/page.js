@@ -5,11 +5,11 @@ import Navbar from '@/components/Navbar'
 import Table from '@/components/Table'
 import Button from '@/components/Button'
 import FormInput from '@/components/FormInput'
+import SearchInput from '@/components/SearchInput'
 import axios from 'axios'
 import { 
   Users, 
   UserPlus, 
-  Search, 
   Filter, 
   Download, 
   Mail, 
@@ -366,19 +366,18 @@ export default function FarmersPage() {
   return (
     <>
       <Navbar title="Farmer Management" />
-      <div className="flex-1 overflow-auto bg-gray-50 p-4 lg:p-8">
+      <div className="min-h-0 flex-1 overflow-auto bg-surface">
         {/* Header Section */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+        <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">
+              <h2 className="mb-2 text-2xl font-bold tracking-tight text-ink md:text-3xl">
                 Farmer Management
               </h2>
-              <p className="text-gray-500">
+              <p className="max-w-xl text-ink-secondary">
                 Manage and monitor all registered farmers in your system
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <Button
                 onClick={handleExport}
                 variant="outline"
@@ -402,56 +401,47 @@ export default function FarmersPage() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Users className="w-6 h-6 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Total Farmers</p>
-                  <p className="text-2xl font-bold text-gray-800">{stats.total}</p>
-                </div>
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
+            <div className="flex items-center gap-4 rounded-xl border border-outline bg-surface-elevated p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-brand-ink">
+                <Users className="h-7 w-7" />
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wider text-ink-tertiary">Total Farmers</p>
+                <p className="text-3xl font-bold tracking-tight text-ink">{stats.total}</p>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <UserCheck className="w-6 h-6 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Active Farmers</p>
-                  <p className="text-2xl font-bold text-gray-800">{stats.active}</p>
-                </div>
+            <div className="flex items-center gap-4 rounded-xl border border-outline bg-surface-elevated p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand text-white shadow-sm">
+                <UserCheck className="h-7 w-7" />
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wider text-ink-tertiary">Active Farmers</p>
+                <p className="text-3xl font-bold tracking-tight text-ink">{stats.active}</p>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                  <UserX className="w-6 h-6 text-gray-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Inactive</p>
-                  <p className="text-2xl font-bold text-gray-800">{stats.inactive}</p>
-                </div>
+            <div className="flex items-center gap-4 rounded-xl border border-outline bg-surface-elevated p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-surface-container text-ink-secondary">
+                <UserX className="h-7 w-7" />
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wider text-ink-tertiary">Inactive</p>
+                <p className="text-3xl font-bold tracking-tight text-ink">{stats.inactive}</p>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <Calendar className="w-6 h-6 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">New This Month</p>
-                  <p className="text-2xl font-bold text-gray-800">{stats.newThisMonth}</p>
-                </div>
+            <div className="flex items-center gap-4 rounded-xl border border-outline bg-surface-elevated p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-800">
+                <Calendar className="h-7 w-7" />
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wider text-ink-tertiary">New This Month</p>
+                <p className="text-3xl font-bold tracking-tight text-ink">{stats.newThisMonth}</p>
               </div>
             </div>
           </div>
-        </div>
 
         {/* Messages */}
         {message.text && (
@@ -583,17 +573,17 @@ export default function FarmersPage() {
         )}
 
         {/* Filters and Search */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+        <div className="mb-6 overflow-hidden rounded-xl border border-outline bg-surface-elevated p-4 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3 w-full lg:w-auto">
-              <div className="relative flex-1 lg:w-80">
-
-                <input
-                  type="text"
-                  placeholder="Search farmers by name, email, or crop..."
+              <div className="flex-1 lg:w-80">
+                <SearchInput
+                  type="search"
+                  placeholder="Search farmers by name, email, or crop…"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-gray-400"
+                  className="w-full"
+                  inputClassName="focus:ring-0"
                 />
               </div>
               <button
@@ -668,7 +658,7 @@ export default function FarmersPage() {
         </div>
 
         {/* Farmers Table */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="mb-6 overflow-hidden rounded-xl border border-outline bg-surface-elevated shadow-sm">
           {loading ? (
             <div className="p-12 text-center">
               <div className="inline-flex items-center gap-3 px-6 py-3 bg-gray-100 rounded-lg">
@@ -713,8 +703,8 @@ export default function FarmersPage() {
 
         {/* Farmer Details Modal */}
         {showDetails && selectedFarmer && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 p-4 backdrop-blur-sm">
+            <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-outline bg-surface-elevated shadow-2xl">
               <div className="p-6 border-b border-gray-200 flex items-start justify-between">
                 <div className="flex items-center gap-4">
                   <img 

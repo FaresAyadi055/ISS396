@@ -3,8 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
-import { Mail, Lock, Sprout, Eye, EyeOff, AlertCircle } from 'lucide-react'
-import Image from 'next/image'
+import { Sprout, Eye, EyeOff, AlertCircle } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -35,6 +34,7 @@ export default function LoginPage() {
 
       if (response.data.user.role !== 'admin') {
         setError('You do not have admin access')
+        setLoading(false)
         return
       }
 
@@ -53,127 +53,101 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Side - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-white">
+    <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col bg-surface-elevated px-4 sm:px-6 md:flex-row md:px-8 lg:px-10">
+      {/* Form column */}
+      <main className="relative flex w-full flex-1 items-center justify-center overflow-y-auto p-8 md:p-12 lg:p-16">
         <div className="w-full max-w-md">
-          {/* Logo and Brand - Increased bottom margin */}
-          <div className="text-center mb-16">
-            <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl mb-8 shadow-lg">
-              <Sprout className="w-12 h-12 text-white" />
+          <div className="mb-10 text-center">
+            <div className="mb-4 inline-flex items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 p-3 text-white shadow-md ring-1 ring-black/5">
+              <Sprout className="h-10 w-10" aria-hidden />
             </div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-3">
-              Crop Diagnostic
-            </h1>
-            <p className="text-gray-500 text-lg">Admin Dashboard Login</p>
+            <h1 className="mb-1 text-3xl font-bold tracking-tight text-ink">Crop Diagnostic</h1>
+            <p className="text-sm font-medium text-ink-tertiary">Admin Dashboard Login</p>
           </div>
 
-          {/* Welcome Message - Increased spacing */}
-          <div className="mb-12 text-center">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-3">
-              Welcome back!
-            </h2>
-            <p className="text-gray-500">
+          <div className="mb-8 text-center">
+            <h2 className="text-2xl font-bold text-ink">Welcome back!</h2>
+            <p className="mt-1 text-sm text-ink-tertiary">
               Please enter your credentials to access the admin panel
             </p>
           </div>
 
           {/* Error Alert - Better spacing */}
           {error && (
-            <div className="mb-10 p-6 bg-red-50 border border-red-200 rounded-xl flex items-start gap-4">
-              <AlertCircle className="w-6 h-6 text-red-500 flex-shrink-0" />
+            <div className="mb-8 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+              <AlertCircle className="h-5 w-5 shrink-0 text-error" aria-hidden />
               <div>
-                <p className="text-base font-medium text-red-800 mb-1">Login Failed</p>
-                <p className="text-red-600">{error}</p>
+                <p className="text-sm font-semibold text-red-900">Login failed</p>
+                <p className="text-sm text-red-700">{error}</p>
               </div>
             </div>
           )}
 
-          {/* Login Form - Increased spacing between fields */}
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Email Field - Fixed icon positioning with more left spacing */}
-            <div>
-              <label className="block text-base font-medium text-gray-700 mb-3">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-1">
+              <label className="block text-sm font-semibold text-ink-secondary" htmlFor="login-email">
                 Email Address
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
-
-                </div>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-14 pr-5 py-5 border-2 border-gray-200 rounded-xl text-lg
-                           focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100
-                           disabled:bg-gray-50 disabled:text-gray-500 transition-all"
-                  placeholder="admin@example.com"
-                  disabled={loading}
-                  required
-                />
-              </div>
+              <input
+                id="login-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-xl border-2 border-outline bg-surface-elevated px-4 py-3 text-ink transition placeholder:text-ink-tertiary focus:border-brand focus:outline-none focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-ink-tertiary"
+                placeholder="admin@example.com"
+                disabled={loading}
+                required
+                autoComplete="email"
+              />
             </div>
 
-            {/* Password Field - Fixed icon positioning with more left spacing */}
-            <div>
-              <label className="block text-base font-medium text-gray-700 mb-3">
+            <div className="space-y-1">
+              <label className="block text-sm font-semibold text-ink-secondary" htmlFor="login-password">
                 Password
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
-                </div>
                 <input
+                  id="login-password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-14 pr-14 py-5 border-2 border-gray-200 rounded-xl text-lg
-                           focus:outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100
-                           disabled:bg-gray-50 disabled:text-gray-500 transition-all"
+                  className="w-full rounded-xl border-2 border-outline bg-surface-elevated px-4 py-3 pr-12 text-ink transition placeholder:text-ink-tertiary focus:border-brand focus:outline-none focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-ink-tertiary"
                   placeholder="••••••••"
                   disabled={loading}
                   required
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-5 flex items-center text-gray-400 hover:text-gray-600 transition"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-ink-tertiary transition hover:bg-surface-muted hover:text-ink-secondary focus:outline-none focus:ring-2 focus:ring-brand/30"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  {showPassword ? <EyeOff className="w-6 h-6" /> : <Eye className="w-6 h-6" />}
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
             </div>
 
-            {/* Remember Me & Forgot Password - Increased vertical spacing */}
-            <div className="flex items-center justify-between pt-4">
-              <label className="flex items-center gap-3 cursor-pointer">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <label className="flex cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-5 h-5 border-2 border-gray-300 rounded text-green-600 focus:ring-green-500"
+                  className="h-4 w-4 rounded border-outline-strong text-brand focus:ring-brand"
                 />
-                <span className="text-base text-gray-600">Remember me for 30 days</span>
+                <span className="text-ink-secondary">Remember me for 30 days</span>
               </label>
-              <button
-                type="button"
-                className="text-base text-green-600 hover:text-green-700 font-medium transition"
-              >
+              <button type="button" className="font-semibold text-brand hover:text-brand-dark transition">
                 Forgot password?
               </button>
             </div>
 
-            {/* Submit Button - Increased height and better spacing */}
-            <div className="pt-6">
+            <div className="pt-2">
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-6 px-6 rounded-xl 
-                         text-lg font-semibold
-                         hover:from-green-700 hover:to-green-800 
-                         disabled:opacity-50 disabled:cursor-not-allowed
-                         focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-offset-2
-                         transition-all duration-200 transform hover:scale-[1.01] active:scale-[0.99]
-                         shadow-lg hover:shadow-xl"
+                className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 py-3.5 text-base font-bold text-white shadow-lg shadow-emerald-200/80 transition duration-200 hover:from-emerald-600 hover:to-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-300/50 disabled:cursor-not-allowed disabled:opacity-50 sm:py-4"
               >
                 {loading ? (
                   <div className="flex items-center justify-center gap-3">
@@ -184,95 +158,98 @@ export default function LoginPage() {
                   'Login to Dashboard'
                 )}
               </button>
-              <br/>
             </div>
           </form>
 
-          {/* Demo Credentials Card - Improved spacing and height */}
-          <div className="mt-12 p-8 bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-xl border-2 border-gray-200">
-            <p className="text-base font-medium text-gray-700 mb-5 flex items-center gap-2">
-              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-              Demo Credentials
-            </p>
-            <div className="space-y-4">
-              <div className="flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-200">
-                <span className="text-gray-500 min-w-[70px] text-base">Email:</span>
-                <code className="flex-1 text-gray-800 font-mono text-base">
-                  admin@example.com
-                </code>
-                <button
-                  onClick={() => setEmail('admin@example.com')}
-                  className="text-sm bg-green-100 text-green-700 hover:bg-green-200 px-4 py-2 rounded-lg font-medium transition"
-                >
-                  Fill
-                </button>
-              </div>
-              <div className="flex items-center gap-4 bg-white p-4 rounded-xl border border-gray-200">
-                <span className="text-gray-500 min-w-[70px] text-base">Password:</span>
-                <code className="flex-1 text-gray-800 font-mono text-base">
-                  password123
-                </code>
-                <button
-                  onClick={() => setPassword('password123')}
-                  className="text-sm bg-green-100 text-green-700 hover:bg-green-200 px-4 py-2 rounded-lg font-medium transition"
-                >
-                  Fill
-                </button>
-              </div>
+          <div className="mt-8 overflow-hidden rounded-xl border border-outline bg-surface-elevated">
+            <div className="flex items-center border-b border-outline bg-gray-50 px-4 py-2">
+              <span className="mr-2 h-2 w-2 rounded-full bg-brand" aria-hidden />
+              <span className="text-xs font-bold uppercase tracking-wider text-ink-secondary">
+                Demo Credentials
+              </span>
             </div>
-          </div>
-
-                <br/>
-
-          <p className="mt-12 text-center text-sm text-gray-400">
-            © {new Date().getFullYear()} Crop Diagnostic. All rights reserved.
-          </p>
-        </div>
-      </div>
-
-      {/* Right Side - Hero Image / Features */}
-      <div className="hidden lg:block lg:w-1/2 bg-gradient-to-br from-green-600 to-green-800 relative overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 -left-4 w-72 h-72 bg-white rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
-          <div className="absolute top-0 -right-4 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
-          <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
-        </div>
-
-        {/* Content - Increased spacing */}
-        <div className="relative h-full flex flex-col items-center justify-center text-white p-12">
-          <div className="max-w-md text-center">
-            <div className="mb-12">
-              <Sprout className="w-32 h-32 mx-auto text-white/90" />
-            </div>
-            <h2 className="text-4xl font-bold mb-8 leading-tight">
-              Crop Diagnostic Admin Panel
-            </h2>
-            <p className="text-xl text-white/90 mb-12 leading-relaxed">
-              Monitor and manage your agricultural diagnostic system with our comprehensive admin dashboard
-            </p>
-            
-            <div className="space-y-6 text-left bg-white/10 p-8 rounded-2xl backdrop-blur-sm">
-              {[
-                'Real-time crop health monitoring',
-                'Manage farmer profiles and records',
-                'Generate detailed diagnostic reports',
-                'Track system performance metrics',
-                'Multi-language support coming soon'
-              ].map((feature, index) => (
-                <div key={index} className="flex items-center gap-4">
-                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <span className="text-white/90 text-lg">{feature}</span>
+            <div className="space-y-2 p-3 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-ink-tertiary">Email:</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-ink">admin@example.com</span>
+                  <button
+                    type="button"
+                    onClick={() => setEmail('admin@example.com')}
+                    className="text-xs font-bold text-brand hover:underline"
+                  >
+                    Fill
+                  </button>
                 </div>
-              ))}
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-ink-tertiary">Password:</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-ink">password123</span>
+                  <button
+                    type="button"
+                    onClick={() => setPassword('password123')}
+                    className="text-xs font-bold text-brand hover:underline"
+                  >
+                    Fill
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
+
+          <footer className="mt-12 text-center text-xs text-ink-tertiary">
+            © {new Date().getFullYear()} Crop Diagnostic. All rights reserved.
+          </footer>
         </div>
-      </div>
+      </main>
+
+      <aside
+        className="relative hidden min-h-[420px] w-full flex-col items-center justify-center bg-gradient-to-br from-emerald-600 via-emerald-700 to-brand-900 p-12 text-white lg:flex lg:w-1/2 lg:min-h-screen lg:p-16"
+        aria-hidden
+      >
+        <div className="pointer-events-none absolute inset-0 opacity-20">
+          <div className="animate-blob absolute -left-4 top-0 h-72 w-72 rounded-full bg-white mix-blend-soft-light blur-3xl" />
+          <div className="animate-blob animation-delay-2000 absolute -right-4 top-24 h-72 w-72 rounded-full bg-emerald-300/40 blur-3xl" />
+          <div className="animate-blob animation-delay-4000 absolute -bottom-8 left-20 h-72 w-72 rounded-full bg-teal-200/30 blur-3xl" />
+        </div>
+
+        <div className="relative mx-auto flex w-full max-w-lg flex-col items-center text-center">
+          <Sprout className="mb-6 h-24 w-24 text-white/90 drop-shadow-md" aria-hidden />
+          <h2 className="mb-4 text-4xl font-extrabold leading-tight tracking-tight lg:text-5xl">
+            Crop Diagnostic Admin Panel
+          </h2>
+          <p className="mb-10 max-w-md text-lg leading-relaxed text-emerald-50/90">
+            Monitor and manage your agricultural diagnostic system with our comprehensive admin dashboard
+          </p>
+
+          <ul className="w-full space-y-4 text-left">
+            {[
+              'Real-time crop health monitoring',
+              'Manage farmer profiles and records',
+              'Generate detailed diagnostic reports',
+              'Track system performance metrics',
+              'Multi-language support coming soon',
+            ].map((feature, index) => (
+              <li
+                key={index}
+                className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/10 p-4 backdrop-blur-sm"
+              >
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20">
+                  <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20" aria-hidden>
+                    <path
+                      fillRule="evenodd"
+                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <span className="font-medium text-white">{feature}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </aside>
     </div>
   )
 }

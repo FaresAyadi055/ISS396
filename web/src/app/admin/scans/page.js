@@ -2,21 +2,18 @@
 
 import { useState, useEffect } from 'react'
 import Navbar from '@/components/Navbar'
+import SearchInput from '@/components/SearchInput'
 import axios from 'axios'
 import { 
-  FileText, 
-  Search, 
-  Filter,
-  Download,
   AlertCircle,
   CheckCircle,
   Clock,
   RefreshCw,
   Eye,
   User,
-  MapPin,
   Calendar,
   X,
+  Trash2,
   Image as ImageIcon,
   Layers
 } from 'lucide-react'
@@ -72,6 +69,25 @@ export default function ScansPage() {
     }
   }
 
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this scan session? This action cannot be undone.'))
+      return
+
+    try {
+      const token = localStorage.getItem('adminToken')
+      const config = {
+        headers: { Authorization: `Bearer ${token}` }
+      }
+      await axios.delete(`/api/admin/scans/${id}`, config)
+      setMessage({ type: 'success', text: 'Scan deleted successfully!' })
+      fetchScans()
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+    } catch (error) {
+      console.error('Delete error:', error.response?.data || error.message)
+      setMessage({ type: 'error', text: 'Failed to delete scan' })
+    }
+  }
+
   const filterScans = () => {
     let filtered = [...scans]
     if (searchTerm) {
@@ -100,51 +116,48 @@ export default function ScansPage() {
   return (
     <>
       <Navbar title="Scans Management" />
-      <div className="flex-1 overflow-auto bg-gray-50 p-4 lg:p-8">
-        <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Scans Management</h2>
-          <p className="text-gray-500">View all user scan submissions</p>
-        </div>
+      <div className="min-h-0 flex-1 overflow-auto bg-surface">
+        <header className="mb-8">
+          <h2 className="mb-2 text-2xl font-bold tracking-tight text-ink md:text-3xl">Scans Management</h2>
+            <p className="flex items-center gap-2 text-sm text-ink-secondary">
+              <Calendar className="h-4 w-4 shrink-0" />
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </p>
+        </header>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <ImageIcon className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Total Scans</p>
-                <p className="text-2xl font-bold text-gray-800">{filteredScans.length}</p>
-              </div>
+        <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
+          <div className="flex items-center gap-4 rounded-xl border border-outline bg-surface-elevated p-5 shadow-sm transition hover:shadow-md">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-brand-ink">
+              <ImageIcon className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-ink-tertiary">Total Scans</p>
+              <p className="text-3xl font-bold tracking-tight text-ink">{filteredScans.length}</p>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Layers className="w-6 h-6 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Total Detections</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {filteredScans.reduce((acc, s) => acc + (s.totalDetections || 0), 0)}
-                </p>
-              </div>
+          <div className="flex items-center gap-4 rounded-xl border border-outline bg-surface-elevated p-5 shadow-sm transition hover:shadow-md">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-700">
+              <Layers className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-ink-tertiary">Total Detections</p>
+              <p className="text-3xl font-bold tracking-tight text-ink">
+                {filteredScans.reduce((acc, s) => acc + (s.totalDetections || 0), 0)}
+              </p>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-green-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500 mb-1">With Reports</p>
-                <p className="text-2xl font-bold text-gray-800">
-                  {filteredScans.filter(s => s.hasReport).length}
-                </p>
-              </div>
+          <div className="flex items-center gap-4 rounded-xl border border-outline bg-surface-elevated p-5 shadow-sm transition hover:shadow-md">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-success">
+              <CheckCircle className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-ink-tertiary">With Reports</p>
+              <p className="text-3xl font-bold tracking-tight text-ink">
+                {filteredScans.filter(s => s.hasReport).length}
+              </p>
             </div>
           </div>
         </div>
@@ -165,27 +178,28 @@ export default function ScansPage() {
           </div>
         )}
 
-        {/* Filters */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
-          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-            <div className="relative flex-1 lg:w-96">
-              <input
-                type="text"
-                placeholder="Search by farmer or session..."
+        <div className="mb-6 overflow-hidden rounded-xl border border-outline bg-surface-elevated p-4 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex-1 lg:w-96">
+              <SearchInput
+                type="search"
+                placeholder="Search by farmer or session…"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-gray-400"
+                className="w-full"
+                rounded="xl"
+                inputClassName="py-3"
               />
             </div>
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <RefreshCw className={`w-4 h-4 cursor-pointer hover:text-gray-700 ${loading ? 'animate-spin' : ''}`} onClick={fetchScans} />
+            <div className="flex items-center gap-2 text-sm text-ink-tertiary">
+              <RefreshCw className={`h-4 w-4 cursor-pointer hover:text-brand-ink ${loading ? 'animate-spin' : ''}`} onClick={fetchScans} />
               <span>{filteredScans.length} scans found</span>
             </div>
           </div>
         </div>
 
         {/* Scans Table */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="overflow-hidden rounded-xl border border-outline bg-surface-elevated shadow-sm">
           {loading ? (
             <div className="p-12 text-center">
               <div className="inline-flex items-center gap-3 px-6 py-3 bg-gray-100 rounded-lg">
@@ -200,20 +214,20 @@ export default function ScansPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50">
+                <thead className="border-b border-outline bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Farmer</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Session</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Scans</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Detections</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-ink-secondary">Farmer</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-ink-secondary">Session</th>
+                    <th className="px-6 py-3 text-center text-xs font-bold uppercase tracking-wider text-ink-secondary">Scans</th>
+                    <th className="px-6 py-3 text-center text-xs font-bold uppercase tracking-wider text-ink-secondary">Detections</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-ink-secondary">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-wider text-ink-secondary">Date</th>
+                    <th className="px-6 py-3 text-right text-xs font-bold uppercase tracking-wider text-ink-secondary">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-100">
                   {filteredScans.map((scan) => (
-                    <tr key={scan._id} className="hover:bg-gray-50">
+                    <tr key={scan._id} className="transition hover:bg-surface-muted/50">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
@@ -228,11 +242,11 @@ export default function ScansPage() {
                       <td className="px-6 py-4">
                         <div className="text-sm text-gray-900">{scan.sessionId || 'N/A'}</div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{scan.scans?.length || 0}</div>
+                      <td className="px-6 py-4 text-center">
+                        <div className="text-sm text-ink">{scan.scans?.length || 0}</div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{scan.totalDetections || 0}</div>
+                      <td className="px-6 py-4 text-center">
+                        <div className="text-sm text-ink">{scan.totalDetections || 0}</div>
                       </td>
                       <td className="px-6 py-4">
                         {(() => {
@@ -251,12 +265,20 @@ export default function ScansPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => setSelectedScan(scan)}
-                          className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => setSelectedScan(scan)}
+                            className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(scan._id)}
+                            className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -291,19 +313,19 @@ export default function ScansPage() {
 
         {/* Scan Details Modal */}
         {selectedScan && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-start justify-between">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 p-4 backdrop-blur-sm">
+            <div className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-outline bg-surface-elevated shadow-2xl">
+              <div className="flex shrink-0 items-start justify-between border-b border-outline bg-surface-elevated p-6">
                 <div>
-                  <h3 className="text-xl font-bold text-gray-800">Scan Details</h3>
-                  <p className="text-sm text-gray-500">{selectedScan.sessionId}</p>
+                  <h3 className="text-xl font-bold text-ink">Scan Details</h3>
+                  <p className="font-mono text-sm text-ink-tertiary">{selectedScan.sessionId}</p>
                 </div>
-                <button onClick={() => setSelectedScan(null)} className="p-2 hover:bg-gray-100 rounded-lg">
-                  <X className="w-5 h-5 text-gray-500" />
+                <button type="button" onClick={() => setSelectedScan(null)} className="rounded-lg p-2 text-ink-tertiary transition hover:bg-surface-muted">
+                  <X className="h-5 w-5" />
                 </button>
               </div>
 
-              <div className="p-6 space-y-6">
+              <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-6">
                 {/* Farmer Info */}
                 <div className="bg-gray-50 rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-2">
@@ -339,10 +361,11 @@ export default function ScansPage() {
                 ))}
               </div>
 
-              <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6 flex justify-end">
+              <div className="flex shrink-0 justify-end border-t border-outline bg-gray-50 p-6">
                 <button
+                  type="button"
                   onClick={() => setSelectedScan(null)}
-                  className="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+                  className="rounded-lg bg-gray-900 px-6 py-2 text-white transition hover:bg-black"
                 >
                   Close
                 </button>

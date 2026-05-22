@@ -1,5 +1,5 @@
 import { readFile } from 'fs/promises';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI} from '@google/genai';
 import { createReport } from './report.service.js';
 import { getSessionBySessionId, markSessionHasReport } from './scan.service.js';
 import { parseAIReport, formatSectionsForDisplay } from './reportParser.service.js';

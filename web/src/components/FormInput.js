@@ -24,29 +24,31 @@ export default function FormInput({
 
   const getBorderColor = () => {
     if (error) return 'border-red-300 focus:border-red-500 focus:ring-red-100'
-    if (success) return 'border-green-300 focus:border-green-500 focus:ring-green-100'
-    if (focused) return 'border-gray-400 focus:border-gray-500 focus:ring-gray-100'
-    return 'border-gray-200 focus:border-gray-400 focus:ring-gray-100'
+    if (success) return 'border-emerald-300 focus:border-emerald-500 focus:ring-emerald-100'
+    if (focused) return 'border-outline-strong focus:border-brand focus:ring-emerald-100'
+    return 'border-outline focus:border-brand focus:ring-emerald-100'
   }
 
   return (
     <div className="space-y-1.5">
       {label && (
-        <label className="block text-sm font-medium text-gray-700">
+        <label className="block text-sm font-semibold text-ink-secondary">
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="ml-1 text-error">*</span>}
         </label>
       )}
-      
-      <div className="relative">
-        {/* Left Icon */}
-        {Icon && (
-          <div className="absolute left-3 top-1/2 -translate-y-1/2">
-            <Icon className={`w-4 h-4 ${error ? 'text-red-400' : 'text-gray-400'}`} />
-          </div>
-        )}
 
-        {/* Input Field */}
+      <div
+        className={`relative ${
+          Icon
+            ? '[&:has(>input:not(:placeholder-shown))_.trail-slot-icon]:hidden'
+            : ''
+        } ${
+          isPassword || error || success
+            ? '[&:has(>input:not(:placeholder-shown))>input]:pr-10'
+            : '[&:has(>input:not(:placeholder-shown))>input]:pr-4'
+        }`}
+      >
         <input
           type={inputType}
           placeholder={placeholder}
@@ -55,46 +57,57 @@ export default function FormInput({
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           className={`
-            w-full px-4 py-2.5 border rounded-lg text-sm
+            w-full rounded-lg border px-4 py-2.5 text-sm leading-normal
             transition-all duration-200
             focus:outline-none focus:ring-2
             disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed
-            ${Icon ? 'pl-10' : ''}
-            ${isPassword ? 'pr-10' : ''}
-            ${error ? 'pr-10' : ''}
-            ${success ? 'pr-10' : ''}
+            placeholder:text-gray-500/90 placeholder:leading-normal
+            ${
+              Icon && (isPassword || error || success)
+                ? 'pr-14'
+                : Icon
+                  ? 'pr-11'
+                  : isPassword || error || success
+                    ? 'pr-10'
+                    : 'pr-4'
+            }
             ${getBorderColor()}
             ${className}
           `}
           {...props}
         />
 
-        {/* Right side elements */}
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-          {/* Password Toggle */}
+        <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1.5">
+          {Icon && (
+            <span
+              className={`trail-slot-icon pointer-events-none flex h-9 w-9 items-center justify-center ${
+                error ? 'text-red-400' : 'text-gray-400'
+              }`}
+              aria-hidden
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+            </span>
+          )}
+
           {isPassword && !disabled && (
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="text-gray-400 hover:text-gray-600 transition"
+              className="text-gray-400 transition hover:text-gray-600"
             >
-              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           )}
 
-          {/* Validation Icons */}
-          {error && <AlertCircle className="w-4 h-4 text-red-500" />}
-          {success && !error && <CheckCircle className="w-4 h-4 text-green-500" />}
+          {error && <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />}
+          {success && !error && <CheckCircle className="h-4 w-4 shrink-0 text-green-500" />}
         </div>
       </div>
 
-      {/* Helper Text & Error Message */}
-      {helperText && !error && (
-        <p className="text-xs text-gray-500">{helperText}</p>
-      )}
+      {helperText && !error && <p className="text-xs text-gray-500">{helperText}</p>}
       {error && (
-        <p className="text-xs text-red-600 flex items-center gap-1">
-          <AlertCircle className="w-3 h-3" />
+        <p className="flex items-center gap-1 text-xs text-red-600">
+          <AlertCircle className="h-3 w-3" />
           {error}
         </p>
       )}
